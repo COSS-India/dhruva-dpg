@@ -15,7 +15,7 @@ def AuthProvider(
     credentials_bearer: Optional[HTTPAuthorizationCredentials] = Depends(
         HTTPBearer(auto_error=False)
     ),
-    credentials_key: Optional[str] = Depends(APIKeyHeader(name="Authorization")),
+    credentials_key: Optional[str] = Depends(APIKeyHeader(name="Authorization", auto_error=False)),
     # This header specifies the origin of the request which
     # can either be API_KEY or AUTH_TOKEN
     x_auth_source: TokenType = Header(default=TokenType.API_KEY),

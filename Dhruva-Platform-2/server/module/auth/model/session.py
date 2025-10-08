@@ -3,12 +3,10 @@ from enum import Enum
 from typing import Any
 from uuid import UUID
 
-from bson import ObjectId
-
-from db.MongoBaseModel import MongoBaseModel
+from db.PostgreSQLBaseModel import PostgreSQLBaseModel
 
 
-class Session(MongoBaseModel):
+class Session(PostgreSQLBaseModel):
     user_id: UUID
     type: str
     timestamp: datetime.datetime

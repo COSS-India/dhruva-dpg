@@ -3,6 +3,7 @@ import os
 import secrets
 import time
 import traceback
+import uuid
 from datetime import datetime
 from typing import List
 from uuid import UUID
@@ -23,7 +24,7 @@ from exception.ulca_set_api_key_tracking_server_error import (
 )
 from fastapi import Depends, status
 from fastapi_sqlalchemy import db
-from module.auth.model import Session
+from db.postgresql_models import Session
 from schema.auth.request import (
     CreateApiKeyRequest,
     GetAllApiKeysRequest,
@@ -94,14 +95,14 @@ class AuthService:
         except Exception:
             raise BaseError(Errors.DHRUVA202.value, traceback.format_exc())
 
-        session = Session(
-            user_id=user.id,
-            type="refresh",
-            timestamp=datetime.now(),
-        )
+        session_data = {
+            "user_id": user.id,
+            "type": "refresh",
+            "timestamp": datetime.now(),
+        }
 
         try:
-            id = self.session_repository.insert_one(session.dict())
+            id = self.session_repository.insert_one(session_data)
         except Exception:
             raise BaseError(Errors.DHRUVA203.value, traceback.format_exc())
 
@@ -126,8 +127,7 @@ class AuthService:
     def register_user(self, request: SignUpRequest):
         # Check if user already exists
         try:
-            #existing_user = self.user_repository.find_one({"email": request.email})
-            existing_user = self.user_repository.find_by_email(request.email)
+            existing_user = self.user_repository.find_one(email=request.email)
         except Exception:
             raise BaseError(Errors.DHRUVA201.value, traceback.format_exc())
 
@@ -150,14 +150,12 @@ class AuthService:
         )
 
         try:
-            #user_id = self.user_repository.insert_one(new_user)
             user_id = self.user_repository.create_user_from_pydantic(new_user)
         except Exception:
             raise BaseError(Errors.DHRUVA207.value, traceback.format_exc())
 
         # Get the created user
         try:
-            #created_user = self.user_repository.get_by_id(ObjectId(str(user_id)))
             created_user = self.user_repository.get_by_id(user_id)
         except Exception:
             raise BaseError(Errors.DHRUVA206.value, traceback.format_exc())
@@ -212,14 +210,14 @@ class AuthService:
                 message="Invalid refresh token",
             )
 
-        session = Session(
-            user_id=UUID(claims["sub"]),
-            type="access",
-            timestamp=datetime.now(),
-        )
+        session_data = {
+            "user_id": uuid.UUID(claims["sub"]),
+            "type": "access",
+            "timestamp": datetime.now(),
+        }
 
         try:
-            id = self.session_repository.insert_one(session.dict())
+            id = self.session_repository.insert_one(session_data)
         except Exception:
             raise BaseError(Errors.DHRUVA203.value, traceback.format_exc())
 
@@ -274,30 +272,36 @@ class AuthService:
 
     def __generate_new_api_key(self, request: CreateApiKeyRequest, id: UUID):
         key = secrets.token_urlsafe(48)
-        api_key = ApiKey(
-            name=request.name,
-            api_key=key,
-            masked_key=self.__mask_key(key),
-            active=True,
-            user_id=id,
-            type=request.type.value,
-            created_timestamp=datetime.now(),
-            data_tracking=request.data_tracking,
-        )
+        api_key_data = {
+            "name": request.name,
+            "api_key": key,
+            "masked_key": self.__mask_key(key),
+            "active": True,
+            "user_id": uuid.UUID(id) if isinstance(id, str) else id,
+            "type": request.type.value if hasattr(request.type, 'value') else request.type,
+            "created_timestamp": datetime.now(),
+            "usage": 0,
+            "hits": 0,
+            "data_tracking": request.data_tracking,
+        }
 
         try:
-            inserted_id = self.api_key_repository.insert_one(api_key.dict())
-            api_key.id = inserted_id
-
-            # Cache write
-            api_key_cache = ApiKeyCache(**api_key.dict())
+            inserted_id = self.api_key_repository.insert_one(api_key_data)
+            
+            # Cache write - prepare data for caching
+            cache_data = api_key_data.copy()
+            cache_data["id"] = str(inserted_id)
+            cache_data["user_id"] = str(cache_data["user_id"])
+            cache_data["created_timestamp"] = cache_data["created_timestamp"].isoformat() if cache_data["created_timestamp"] else None
+            
+            api_key_cache = ApiKeyCache(**cache_data)
             api_key_cache.save()
         except Exception:
             raise BaseError(Errors.DHRUVA204.value, traceback.format_exc())
 
         return key
 
-    def __regenerate_api_key(self, existing_api_key: ApiKey):
+    def __regenerate_api_key(self, existing_api_key):
         key = secrets.token_urlsafe(48)
         existing_api_key.api_key = key
         existing_api_key.masked_key = self.__mask_key(key)
@@ -306,8 +310,24 @@ class AuthService:
         try:
             self.api_key_repository.save(existing_api_key)
 
+            # Convert to Pydantic model for caching
+            api_key_data = {
+                "id": str(existing_api_key.id),
+                "name": existing_api_key.name,
+                "api_key": existing_api_key.api_key,
+                "masked_key": existing_api_key.masked_key,
+                "active": existing_api_key.active,
+                "user_id": str(existing_api_key.user_id),
+                "type": existing_api_key.type,
+                "created_timestamp": existing_api_key.created_timestamp.isoformat() if existing_api_key.created_timestamp else None,
+                "usage": existing_api_key.usage,
+                "hits": existing_api_key.hits,
+                "data_tracking": existing_api_key.data_tracking,
+                "services": existing_api_key.services or []
+            }
+            
             # Cache write
-            api_key_cache = ApiKeyCache(**existing_api_key.dict())
+            api_key_cache = ApiKeyCache(**api_key_data)
             api_key_cache.save()
         except Exception:
             raise BaseError(Errors.DHRUVA204.value, traceback.format_exc())
@@ -327,7 +347,7 @@ class AuthService:
 
         try:
             key = self.api_key_repository.find_one(
-                {"name": params.api_key_name, "user_id": user_id}
+                name=params.api_key_name, user_id=user_id
             )
         except Exception:
             raise BaseError(Errors.DHRUVA208.value, traceback.format_exc())
@@ -337,29 +357,52 @@ class AuthService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 message="API Key does not exist",
             )
+        # Create the GetApiKeyResponse model with proper field mapping
+        from schema.auth.response.get_api_key_response import GetApiKeyResponse
+        
+        return GetApiKeyResponse(
+            _id=str(key.id),  # Use _id as the key (due to alias)
+            name=key.name,
+            masked_key=key.masked_key,
+            active=key.active,
+            type=key.type,
+            created_timestamp=key.created_timestamp,
+            data_tracking=key.data_tracking,
+            services=[]  # Start with empty list for now
+        )
 
-        return key
-
-    def __filter_service_id(self, keys: List[ApiKey], service_id: str):
+    def __filter_service_id(self, keys: List[dict], service_id: str):
+        from schema.auth.common import ServiceLevelApiKeyDisplay
+        
         total_usage = 0
+        filtered_keys = []
+        
         for key in keys:
             service = list(
-                filter(lambda service: service.service_id == service_id, key.services)
+                filter(lambda service: service.get('service_id') == service_id, key.get('services', []))
             )
             if service:
-                total_usage += service[0].usage
-                key.usage = service[0].usage
+                usage = service[0].get('usage', 0)
+                total_usage += usage
             else:
-                key.usage = 0
-                key.services = []
+                usage = 0
 
-        return keys, total_usage
+            # Convert ApiKey to ServiceLevelApiKeyDisplay
+            service_level_key = ServiceLevelApiKeyDisplay(
+                name=key.get('name', ''),
+                usage=usage
+            )
+            filtered_keys.append(service_level_key)
+        return filtered_keys, total_usage
 
     def get_all_api_keys(self, params: GetAllApiKeysRequest, id: UUID):
         try:
             user_id = (
                 id if not params.target_user_id else UUID(params.target_user_id)
             )
+            # Convert string to UUID if needed
+            if isinstance(user_id, str):
+                user_id = uuid.UUID(user_id)
         except Exception:
             raise ClientError(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -367,7 +410,32 @@ class AuthService:
             )
 
         try:
-            keys = self.api_key_repository.find({"user_id": user_id})
+            sql_keys = self.api_key_repository.find_by_user_id(user_id)
+            
+            # Convert SQLAlchemy objects to Pydantic models
+            keys = []
+            for sql_key in sql_keys:
+                # Convert services to the expected format
+                services = []
+                if hasattr(sql_key, 'services') and sql_key.services:
+                    for service in sql_key.services:
+                        services.append({
+                            "service_id": service.get('service_id', ''),
+                            "usage": service.get('usage', 0)
+                        })
+                
+                key_data = {
+                    "id": str(sql_key.id),
+                    "name": sql_key.name,
+                    "masked_key": sql_key.masked_key,
+                    "active": sql_key.active,
+                    "type": sql_key.type,
+                    "created_timestamp": sql_key.created_timestamp,
+                    "services": services,
+                    "data_tracking": sql_key.data_tracking
+                }
+                keys.append(key_data)
+            
             if hasattr(params, "target_service_id") and params.target_service_id:
                 keys, total_usage = self.__filter_service_id(
                     keys, params.target_service_id
@@ -392,8 +460,36 @@ class AuthService:
             - total_usage
             - total_pages
         """
-        keys = self.api_key_repository.find({"user_id": UUID(target_user_id)})
-        total_usage = sum(k.usage for k in keys)
+        # Convert string to UUID if needed
+        if isinstance(target_user_id, str):
+            target_user_id = uuid.UUID(target_user_id)
+            
+        sql_keys = self.api_key_repository.find(user_id=target_user_id)
+        total_usage = sum(k.usage for k in sql_keys)
+        
+        # Convert SQLAlchemy objects to Pydantic models
+        keys = []
+        for sql_key in sql_keys:
+            # Convert services to the expected format
+            services = []
+            if hasattr(sql_key, 'services') and sql_key.services:
+                for service in sql_key.services:
+                    services.append({
+                        "service_id": service.get('service_id', ''),
+                        "usage": service.get('usage', 0)
+                    })
+            
+            key_data = {
+                "id": str(sql_key.id),
+                "name": sql_key.name,
+                "masked_key": sql_key.masked_key,
+                "active": sql_key.active,
+                "type": sql_key.type,
+                "created_timestamp": sql_key.created_timestamp,
+                "services": services,
+                "data_tracking": sql_key.data_tracking
+            }
+            keys.append(key_data)
 
         return (
             keys[(page - 1) * limit : page * limit],
@@ -414,7 +510,7 @@ class AuthService:
 
         try:
             api_key = self.api_key_repository.find_one(
-                {"name": params.api_key_name, "user_id": user_id}
+                name=params.api_key_name, user_id=user_id
             )
         except Exception:
             raise BaseError(Errors.DHRUVA208.value, traceback.format_exc())
@@ -425,33 +521,55 @@ class AuthService:
                 message="Api key not found",
             )
 
-        if params.data_tracking:
-            api_key.enable_tracking()
-        elif params.data_tracking == False:
-            api_key.disable_tracking()
+        if params.data_tracking is not None:
+            api_key.data_tracking = params.data_tracking
 
-        if params.active:
-            api_key.activate()
-        elif params.active == False:
-            api_key.revoke()
+        if params.active is not None:
+            api_key.active = params.active
 
         try:
             self.api_key_repository.save(api_key)
 
-            # Cache write
-            api_key_cache = ApiKeyCache(**api_key.dict())
+            # Cache write - convert SQLAlchemy model to dict for caching
+            api_key_dict = {
+                "id": str(api_key.id),
+                "name": api_key.name,
+                "api_key": api_key.api_key,
+                "masked_key": api_key.masked_key,
+                "active": api_key.active,
+                "user_id": str(api_key.user_id),
+                "type": api_key.type,
+                "created_timestamp": api_key.created_timestamp.isoformat() if api_key.created_timestamp else None,
+                "usage": api_key.usage,
+                "hits": api_key.hits,
+                "data_tracking": api_key.data_tracking,
+                "services": api_key.services or []
+            }
+            api_key_cache = ApiKeyCache(**api_key_dict)
             api_key_cache.save()
         except Exception:
             raise BaseError(Errors.DHRUVA211.value, traceback.format_exc())
 
-        return api_key
+        # Create the GetApiKeyResponse model with proper field mapping
+        from schema.auth.response.get_api_key_response import GetApiKeyResponse
+        
+        return GetApiKeyResponse(
+            _id=str(api_key.id),  # Use _id as the key (due to alias)
+            name=api_key.name,
+            masked_key=api_key.masked_key,
+            active=api_key.active,
+            type=api_key.type,
+            created_timestamp=api_key.created_timestamp,
+            data_tracking=api_key.data_tracking,
+            services=api_key.services or []  # Use actual services data
+        )
 
     def set_api_key_status_ulca(self, request: ULCADeleteApiKeyRequest, id: UUID):
         api_key_name = request.emailId + "/" + request.appName
 
         try:
             api_key = self.api_key_repository.find_one(
-                {"name": api_key_name, "user_id": id}
+                name=api_key_name, user_id=id
             )
         except Exception:
             raise ULCADeleteApiKeyServerError(
@@ -463,13 +581,27 @@ class AuthService:
                 status.HTTP_404_NOT_FOUND, "API Key not found"
             )
 
-        api_key.revoke()
+        api_key.active = False
 
         try:
             self.api_key_repository.save(api_key)
 
+            # Convert to Pydantic model for caching
+            api_key_data = {
+                "id": str(api_key.id),
+                "name": api_key.name,
+                "api_key": api_key.api_key,
+                "masked_key": api_key.masked_key,
+                "active": api_key.active,
+                "user_id": str(api_key.user_id),
+                "type": api_key.type,
+                "created_timestamp": api_key.created_timestamp,
+                "data_tracking": api_key.data_tracking,
+                "services": api_key.services or []
+            }
+            
             # Cache write
-            api_key_cache = ApiKeyCache(**api_key.dict())
+            api_key_cache = ApiKeyCache(**api_key_data)
             api_key_cache.save()
         except Exception:
             raise ULCADeleteApiKeyServerError(
@@ -487,7 +619,7 @@ class AuthService:
 
         try:
             api_key = self.api_key_repository.find_one(
-                {"name": api_key_name, "user_id": id}
+                name=api_key_name, user_id=id
             )
         except Exception:
             raise ULCASetApiKeyTrackingServerError(
@@ -499,16 +631,27 @@ class AuthService:
                 status.HTTP_404_NOT_FOUND, "API Key not found"
             )
 
-        if request.dataTracking:
-            api_key.enable_tracking()
-        else:
-            api_key.disable_tracking()
+        api_key.data_tracking = request.dataTracking
 
         try:
             self.api_key_repository.save(api_key)
 
+            # Convert to Pydantic model for caching
+            api_key_data = {
+                "id": str(api_key.id),
+                "name": api_key.name,
+                "api_key": api_key.api_key,
+                "masked_key": api_key.masked_key,
+                "active": api_key.active,
+                "user_id": str(api_key.user_id),
+                "type": api_key.type,
+                "created_timestamp": api_key.created_timestamp,
+                "data_tracking": api_key.data_tracking,
+                "services": api_key.services or []
+            }
+            
             # Cache write
-            api_key_cache = ApiKeyCache(**api_key.dict())
+            api_key_cache = ApiKeyCache(**api_key_data)
             api_key_cache.save()
         except Exception:
             raise ULCASetApiKeyTrackingServerError(

@@ -1,8 +1,8 @@
 import traceback
+import uuid
 from typing import List
 
 from argon2 import PasswordHasher
-from bson import ObjectId
 from exception import BaseError, ClientError
 from fastapi import Depends, status
 from schema.auth.common import ApiKeyType
@@ -25,7 +25,7 @@ class UserService:
         self.auth_service = auth_service
 
     def create_user(self, request: CreateUserRequest):
-        existing_user = self.user_repository.find_one({"email": request.email})
+        existing_user = self.user_repository.find_one(email=request.email)
 
         if existing_user:
             raise ClientError(
@@ -37,20 +37,20 @@ class UserService:
 
         hashed_password = ph.hash(request.password)
 
-        new_user = User(
-            name=request.name,
-            email=request.email,
-            password=hashed_password,
-            role=request.role,
-        )
+        user_data = {
+            "name": request.name,
+            "email": request.email,
+            "password": hashed_password,
+            "role": request.role.value if hasattr(request.role, 'value') else request.role,
+        }
 
         try:
-            id = self.user_repository.insert_one(new_user)
+            id = self.user_repository.insert_one(user_data)
         except Exception:
             raise BaseError(Errors.DHRUVA207.value, traceback.format_exc())
 
         try:
-            created_user = self.user_repository.get_by_id(ObjectId(str(id)))
+            created_user = self.user_repository.get_by_id(id)
         except Exception:
             raise BaseError(Errors.DHRUVA206.value, traceback.format_exc())
         try:
@@ -64,7 +64,7 @@ class UserService:
 
             self.auth_service.create_api_key(
                 request=api_request,
-                id=ObjectId(str(created_user.id)),
+                id=str(created_user.id),
             )
         except Exception:
             raise BaseError(Errors.DHRUVA207.value, traceback.format_exc())
@@ -72,14 +72,17 @@ class UserService:
 
     def list_users(self):
         try:
-            users = self.user_repository.find({})
+            users = self.user_repository.find_all()
         except Exception:
             raise BaseError(Errors.DHRUVA206.value, traceback.format_exc())
         return users
 
-    def modify_user(self, params: ModifyUserQuery, user_id: ObjectId):
+    def modify_user(self, params: ModifyUserQuery, user_id):
         try:
-            user = self.user_repository.get_by_id(ObjectId(user_id))
+            # Handle both UUID and string inputs
+            if isinstance(user_id, str):
+                user_id = uuid.UUID(user_id)
+            user = self.user_repository.get_by_id(user_id)
         except Exception:
             raise BaseError(Errors.DHRUVA206.value, traceback.format_exc())
 
