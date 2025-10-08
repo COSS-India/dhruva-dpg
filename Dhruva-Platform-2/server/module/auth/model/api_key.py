@@ -1,12 +1,13 @@
 from datetime import datetime
 from typing import List, Optional
+from uuid import UUID
 
 import pydantic
 from bson import ObjectId
 from uuid import UUID
 
 from cache.CacheBaseModel import CacheBaseModel, generate_cache_model
-from db.MongoBaseModel import MongoBaseModel
+from db.PostgreSQLBaseModel import PostgreSQLBaseModel
 
 
 class _ServiceUsage(pydantic.BaseModel):
@@ -15,7 +16,7 @@ class _ServiceUsage(pydantic.BaseModel):
     hits: int = 0
 
 
-class ApiKey(MongoBaseModel):
+class ApiKey(PostgreSQLBaseModel):
     name: str
     api_key: str
     masked_key: str
