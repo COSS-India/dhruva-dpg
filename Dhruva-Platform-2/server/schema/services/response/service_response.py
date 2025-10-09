@@ -14,6 +14,7 @@ class _Benchmark(BaseModel):
     fifty: float = Field(alias="50%")
     ninety_nine: float = Field(alias="99%")
     language: str
+        
 
 
 class ServiceStatus(BaseModel):
@@ -22,7 +23,7 @@ class ServiceStatus(BaseModel):
 
 
 class ServiceResponse(BaseModel):
-    id: ObjectIdField = Field(alias="_id")
+        # Allow UUID/string ids from PostgreSQL as _id; keep alias for backward compatibility
     serviceId: str
     name: str
     serviceDescription: str

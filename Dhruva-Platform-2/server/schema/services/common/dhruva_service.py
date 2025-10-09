@@ -12,6 +12,9 @@ class _Benchmark(BaseModel):
     ninety_nine: float = Field(alias="99%")
     language: str
 
+    class Config:
+        allow_population_by_field_name = True
+
 
 class Service(BaseModel):
     serviceId: str

@@ -17,6 +17,8 @@ from ...auth.service.auth_service import AuthService
 from ..error.errors import Errors
 from ..model import ModelCache, Service, ServiceCache
 from db.postgresql_models import Model
+from db.postgresql_models import Service as SQLService
+from redis_om.model.model import NotFoundError
 from ..repository import ModelRepository, ServiceRepository
 
 
@@ -52,10 +54,25 @@ class AdminService:
         )
 
     def create_service(self, request: ServiceCreateRequest):
-        svc = request.dict()
-        service = Service(**svc)
-        insert_id = self.service_repository.insert_one(service)
+        svc = request.dict(by_alias=True)
 
+        # Build SQLAlchemy model instance for insertion
+        service_record = SQLService(
+            service_id=svc["serviceId"],
+            name=svc["name"],
+            service_description=svc["serviceDescription"],
+            hardware_description=svc["hardwareDescription"],
+            published_on=svc["publishedOn"],
+            model_id=svc["modelId"],
+            endpoint=svc["endpoint"],
+            api_key=svc["api_key"],
+            health_status=None,
+            benchmarks=svc.get("benchmarks")
+        )
+
+        insert_id = self.service_repository.insert_one(service_record)
+
+        # Populate cache using original (alias-preserving) payload
         svc.update({"_id": insert_id})
         cache = ServiceCache(**svc)
         cache.save()
@@ -103,19 +120,38 @@ class AdminService:
         return insert_id
 
     def update_service(self, request: ServiceUpdateRequest):
-        cache = ServiceCache.get(request.serviceId)
+        # Enforce cache presence; raise 404 if missing
+        try:
+            cache = ServiceCache.get(request.serviceId)
+        except NotFoundError:
+            raise ClientError(status.HTTP_404_NOT_FOUND, message="Service not found in cache")
+
         request_dict = request.dict()
 
-        # Cache ignores all complex fields
+        # Update cache: only fields defined and non-null
         new_cache = cache.dict()
         for key, value in request_dict.items():
-            if key in cache.__fields__ and value:
+            if key in cache.__fields__ and value is not None:
                 new_cache[key] = value
+        ServiceCache(**new_cache).save()
 
-        new_cache = ServiceCache(**new_cache)
-        new_cache.save()
+        # Build SQL update payload (snake_case)
+        update_data = {}
+        if request.name is not None:
+            update_data["name"] = request.name
+        if request.serviceDescription is not None:
+            update_data["service_description"] = request.serviceDescription
+        if request.hardwareDescription is not None:
+            update_data["hardware_description"] = request.hardwareDescription
+        if request.endpoint is not None:
+            update_data["endpoint"] = request.endpoint
+        # languagePair is not persisted on services table; skip
 
-        return self.service_repository.update_one(request.dict())
+        if not update_data:
+            return 0
+
+        # Update by business key (service_id)
+        return self.service_repository.update_by_service_id(request.serviceId, update_data)
 
     def update_model(self, request: ModelUpdateRequest):
         request_dict = request.dict()
