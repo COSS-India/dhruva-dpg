@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, create_model
+from cache.constants import SERVICE_CACHE_PREFIX
 
 from cache.CacheBaseModel import CacheBaseModel, generate_cache_model
 from db.MongoBaseModel import MongoBaseModel
@@ -17,6 +18,8 @@ class _Benchmark(BaseModel):
     ninety_nine: float = Field(alias="99%")
     language: str
 
+    class Config:
+        allow_population_by_field_name = True
 
 class ServiceStatus(BaseModel):
     status: str
@@ -41,3 +44,6 @@ ServiceCache = create_model(
     __base__=CacheBaseModel,
     **generate_cache_model(Service, primary_key_field="serviceId")
 )
+
+# Use centralized constant for cache key prefix
+ServiceCache.Meta.model_key_prefix = SERVICE_CACHE_PREFIX
