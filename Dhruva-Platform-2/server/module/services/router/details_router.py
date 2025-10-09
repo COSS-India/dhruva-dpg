@@ -130,6 +130,8 @@ async def _view_model_details(
 ):
     try:
         model = model_repository.find_by_id(request.modelId)
+        if not model:
+            model = model_repository.find_by_model_id(request.modelId)
     except Exception:
         raise BaseError(Errors.DHRUVA105.value, traceback.format_exc())
 
