@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 from bson import ObjectId
 from pydantic import BaseModel, Field
 
-from ...common import ObjectIdField
+from ...common import UUIDField
 
 
 class _Benchmark(BaseModel):
@@ -22,7 +22,7 @@ class ServiceStatus(BaseModel):
 
 
 class ServiceResponse(BaseModel):
-    id: ObjectIdField = Field(alias="_id")
+    id: UUIDField = Field(alias="_id")
     serviceId: str
     name: str
     serviceDescription: str
