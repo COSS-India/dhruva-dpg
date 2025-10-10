@@ -208,19 +208,22 @@ class AdminService:
                 "id": str(service.id),
                 "service_id": service.service_id,
                 "name": service.name,
-                "description": service.description,
+                "service_description": service.service_description,
+                "hardware_description": service.hardware_description,
+                "published_on": service.published_on,
+                "model_id": service.model_id,
                 "endpoint": service.endpoint,
-                "task": service.task,
-                "languages": service.languages,
-                "active": service.active,
+                "api_key": service.api_key,
+                "health_status": service.health_status,
+                "benchmarks": service.benchmarks,
                 "created_at": service.created_at.isoformat() if service.created_at else None,
                 "updated_at": service.updated_at.isoformat() if service.updated_at else None
             }
             
-            if "healthStatus" not in service_dict:
-                service_dict["healthStatus"] = {}
-            service_dict["healthStatus"]["status"] = request_body.status
-            service_dict["healthStatus"]["lastUpdated"] = str(datetime.datetime.now())
+            if "health_status" not in service_dict or service_dict["health_status"] is None:
+                service_dict["health_status"] = {}
+            service_dict["health_status"]["status"] = request_body.status
+            service_dict["health_status"]["lastUpdated"] = str(datetime.datetime.now())
             self.service_repository.update_one(service_dict)
             return {"message": "Service status updated successfully"}
         except:
