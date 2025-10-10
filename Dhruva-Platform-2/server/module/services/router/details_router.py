@@ -129,9 +129,10 @@ async def _view_model_details(
     model_repository: ModelRepository = Depends(ModelRepository),
 ):
     try:
-        model = model_repository.find_by_id(request.modelId)
+        model = model_repository.find_by_model_id(request.modelId)
         if not model:
-            model = model_repository.find_by_model_id(request.modelId)
+            # Fallback: try to find by UUID if modelId happens to be a UUID
+            model = model_repository.find_by_id(request.modelId)
     except Exception:
         raise BaseError(Errors.DHRUVA105.value, traceback.format_exc())
 
