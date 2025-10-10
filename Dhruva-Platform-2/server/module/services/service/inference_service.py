@@ -67,16 +67,16 @@ def populate_service_cache(serviceId: str, service_repository: ServiceRepository
     service = service_repository.get_by_service_id(serviceId)
     # Convert SQLAlchemy model to dict for caching
     service_dict = {
-        "id": str(service.id),
-        "service_id": service.service_id,
+        "serviceId": service.service_id,
         "name": service.name,
-        "description": service.description,
+        "serviceDescription": service.service_description or "",
+        "hardwareDescription": service.hardware_description or "",
+        "publishedOn": service.published_on,
+        "modelId": service.model_id,
         "endpoint": service.endpoint,
-        "task": service.task,
-        "languages": service.languages,
-        "active": service.active,
-        "created_at": service.created_at.isoformat() if service.created_at else None,
-        "updated_at": service.updated_at.isoformat() if service.updated_at else None
+        "api_key": service.api_key or "",
+        "healthStatus": service.health_status,
+        "benchmarks": service.benchmarks
     }
     service_cache = ServiceCache(**service_dict)
     service_cache.save()
