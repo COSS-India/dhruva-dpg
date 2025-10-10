@@ -31,9 +31,10 @@ class DetailsService:
         self, request: ServiceViewRequest, user_id: ObjectId
     ) -> Optional[ServiceViewResponse]:
         try:
-            service = self.service_repository.find_by_id(request.serviceId)
+            service = self.service_repository.find_by_service_id(request.serviceId)
             if not service:
-                service = self.service_repository.find_by_service_id(request.serviceId)
+                # Fallback: try to find by UUID if serviceId happens to be a UUID
+                service = self.service_repository.find_by_id(request.serviceId)
         except:
             raise BaseError(Errors.DHRUVA104.value, traceback.format_exc())
 

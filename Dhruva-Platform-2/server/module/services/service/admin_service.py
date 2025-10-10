@@ -199,7 +199,7 @@ class AdminService:
 
     def inference_service_status(self, request_body: ServiceHeartbeatRequest):
         try:
-            service = self.service_repository.find_by_id(request_body.serviceId)
+            service = self.service_repository.find_by_service_id(request_body.serviceId)
             if not service:
                 raise BaseError(Errors.DHRUVA104.value)
             
@@ -224,7 +224,10 @@ class AdminService:
                 service_dict["health_status"] = {}
             service_dict["health_status"]["status"] = request_body.status
             service_dict["health_status"]["lastUpdated"] = str(datetime.datetime.now())
-            self.service_repository.update_one(service_dict)
+            
+            # Update only the health_status field
+            update_data = {"health_status": service_dict["health_status"]}
+            self.service_repository.update_one(service.id, update_data)
             return {"message": "Service status updated successfully"}
         except:
             raise BaseError(Errors.DHRUVA113.value, traceback.format_exc())
