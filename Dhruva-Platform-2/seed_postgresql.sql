@@ -58,7 +58,7 @@ INSERT INTO api_keys (
     created_timestamp, usage, hits, data_tracking, services
 ) VALUES (
     '550e8400-e29b-41d4-a716-446655440003',
-    'test-api-key',
+    'default',
     'dhruva_test_key_12345678901234567890',
     'dhru****************************7890',
     true,
