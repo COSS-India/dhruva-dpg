@@ -76,7 +76,7 @@ def seed_users(db: Session) -> str:
     default_user = User(
         name="Default Admin",
         email="admin@dhruva.co",
-        password="$argon2id$v=19$m=65536,t=3,p=4$1RG1u90QK1yCBQ0BilJUQA$KWtR2seeu3ihWi2tX+R+mfL1n8H51qj7XPdripqtTVc",  # Password: admin123
+        password="$argon2id$v=19$m=65536,t=3,p=4$1RG1u90QK1yCBQ0BilJUQA$KWtR2seeu3ihWi2tX+R+mfL1n8H51qj7XPdripqtTVc",
         role="ADMIN"
     )
     
