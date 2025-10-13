@@ -7,7 +7,7 @@ INSERT INTO users (id, name, email, password, role) VALUES
     '550e8400-e29b-41d4-a716-446655440000',
     'Default Admin',
     'admin@dhruva.co',
-    '$argon2id$v=19$m=65536,t=3,p=4$hashed_password_here',
+    '$argon2id$v=19$m=65536,t=3,p=4$1RG1u90QK1yCBQ0BilJUQA$KWtR2seeu3ihWi2tX+R+mfL1n8H51qj7XPdripqtTVc',
     'ADMIN'
 ) ON CONFLICT (email) DO NOTHING;
 
