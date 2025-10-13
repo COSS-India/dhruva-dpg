@@ -17,9 +17,9 @@ def seed_postgresql_database(db: Session):
     print("🌱 Seeding PostgreSQL database...")
     
     # Check if database is already seeded
-    # if db.query(User).count() > 0:
-    #     print("  Database already seeded, skipping...")
-    #     return
+    if db.query(User).count() > 0:
+        print("  Database already seeded, skipping...")
+        return
     
     try:
         # Seed users first (required for foreign keys)
