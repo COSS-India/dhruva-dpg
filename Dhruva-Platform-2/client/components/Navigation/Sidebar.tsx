@@ -68,17 +68,16 @@ const Sidebar: React.FC = () => {
     >
       <Box pt="1.5" borderRadius="xl">
         <Box h="4rem" mt={4} justifyContent="flex-start">
-          <HStack>
-            <Spacer />
-            {isOpen ? (
+          <HStack justifyContent="center" alignItems="center">
+            {!isOpen ? (
+              <Text fontSize="2xl" fontWeight="bold" color="gray.600">
+                D
+              </Text>
+            ) : (
               <Text marginLeft={4} fontSize={"x-large"} fontWeight={"bold"}>
                 Dhruva
               </Text>
-            ) : (
-              <></>
             )}
-            <Spacer />
-            <Spacer />
           </HStack>
         </Box>
         <Divider />

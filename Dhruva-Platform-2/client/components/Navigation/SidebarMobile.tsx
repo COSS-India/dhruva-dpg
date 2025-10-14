@@ -61,13 +61,10 @@ const SidebarMobile: React.FC = () => {
     >
       <Box borderRadius="xl">
         <Box h="4rem" justifyContent="flex-start">
-          <HStack>
-            <Spacer />
-            <Text marginLeft={4} fontSize={"x-large"} fontWeight={"bold"}>
+          <HStack justifyContent="center" alignItems="center">
+            <Text fontSize={"x-large"} fontWeight={"bold"}>
               Dhruva
             </Text>
-            <Spacer />
-            <Spacer />
           </HStack>
         </Box>
         <Divider />
