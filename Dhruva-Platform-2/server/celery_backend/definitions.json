@@ -1,0 +1,29 @@
+{
+  "rabbit_version": "3",
+  "users": [
+    {
+      "name": "admin",
+      "password": "admin123",
+      "tags": "administrator"
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "dhruva_host"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "admin",
+      "vhost": "dhruva_host",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "parameters": [],
+  "policies": [],
+  "queues": [],
+  "exchanges": [],
+  "bindings": []
+}
