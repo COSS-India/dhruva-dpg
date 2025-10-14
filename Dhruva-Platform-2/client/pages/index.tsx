@@ -123,8 +123,7 @@ export default function Login() {
         <Grid templateColumns="repeat(1, 1fr)">
           <GridItem className="centered-column" w="100%" h="100vh">
             <Stack spacing={5}>
-              <Image src="/a4b.svg" width={104} height={104} alt="a4b" />
-              <Heading>Login into Dhruva</Heading>
+              <Heading fontSize="3xl">Login into Dhruva</Heading>
               <Input
                 value={username}
                 type="username"
@@ -160,18 +159,17 @@ export default function Login() {
             w="100%"
             h="100vh"
             bg="gray.100"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
           >
-            <Image
-              src="/dhruvaai.svg"
-              width={500}
-              height={500}
-              alt="dhruvabot"
-            />
+            <Heading fontSize="4xl" color="gray.600">
+              Dhruva
+            </Heading>
           </GridItem>
           <GridItem className="centered-column" w="100%" h="100vh">
             <Stack spacing={5}>
-              <Image src="/a4b.svg" width={104} height={104} alt="a4b" />
-              <Heading>Login into Dhruva</Heading>
+              <Heading fontSize="3xl">Login into Dhruva</Heading>
               <Input
                 value={username}
                 type="username"
