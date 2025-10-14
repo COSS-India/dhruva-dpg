@@ -199,7 +199,7 @@ class AdminService:
 
     def inference_service_status(self, request_body: ServiceHeartbeatRequest):
         try:
-            service = self.service_repository.find_by_id(request_body.serviceId)
+            service = self.service_repository.find_by_service_id(request_body.serviceId)
             if not service:
                 raise BaseError(Errors.DHRUVA104.value)
             
@@ -208,20 +208,26 @@ class AdminService:
                 "id": str(service.id),
                 "service_id": service.service_id,
                 "name": service.name,
-                "description": service.description,
+                "service_description": service.service_description,
+                "hardware_description": service.hardware_description,
+                "published_on": service.published_on,
+                "model_id": service.model_id,
                 "endpoint": service.endpoint,
-                "task": service.task,
-                "languages": service.languages,
-                "active": service.active,
+                "api_key": service.api_key,
+                "health_status": service.health_status,
+                "benchmarks": service.benchmarks,
                 "created_at": service.created_at.isoformat() if service.created_at else None,
                 "updated_at": service.updated_at.isoformat() if service.updated_at else None
             }
             
-            if "healthStatus" not in service_dict:
-                service_dict["healthStatus"] = {}
-            service_dict["healthStatus"]["status"] = request_body.status
-            service_dict["healthStatus"]["lastUpdated"] = str(datetime.datetime.now())
-            self.service_repository.update_one(service_dict)
+            if "health_status" not in service_dict or service_dict["health_status"] is None:
+                service_dict["health_status"] = {}
+            service_dict["health_status"]["status"] = request_body.status
+            service_dict["health_status"]["lastUpdated"] = str(datetime.datetime.now())
+            
+            # Update only the health_status field
+            update_data = {"health_status": service_dict["health_status"]}
+            self.service_repository.update_one(service.id, update_data)
             return {"message": "Service status updated successfully"}
         except:
             raise BaseError(Errors.DHRUVA113.value, traceback.format_exc())

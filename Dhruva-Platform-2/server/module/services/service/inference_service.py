@@ -67,16 +67,16 @@ def populate_service_cache(serviceId: str, service_repository: ServiceRepository
     service = service_repository.get_by_service_id(serviceId)
     # Convert SQLAlchemy model to dict for caching
     service_dict = {
-        "id": str(service.id),
-        "service_id": service.service_id,
+        "serviceId": service.service_id,
         "name": service.name,
-        "description": service.description,
+        "serviceDescription": service.service_description or "",
+        "hardwareDescription": service.hardware_description or "",
+        "publishedOn": service.published_on,
+        "modelId": service.model_id,
         "endpoint": service.endpoint,
-        "task": service.task,
-        "languages": service.languages,
-        "active": service.active,
-        "created_at": service.created_at.isoformat() if service.created_at else None,
-        "updated_at": service.updated_at.isoformat() if service.updated_at else None
+        "api_key": service.api_key or "",
+        "healthStatus": service.health_status,
+        "benchmarks": service.benchmarks
     }
     service_cache = ServiceCache(**service_dict)
     service_cache.save()
@@ -84,16 +84,24 @@ def populate_service_cache(serviceId: str, service_repository: ServiceRepository
 
 
 def populate_model_cache(modelId: str, model_repository: ModelRepository):
-    model = model_repository.get_by_id(modelId)
+    model = model_repository.get_by_model_id(modelId)
     # Convert SQLAlchemy model to dict for caching
     model_dict = {
         "id": str(model.id),
-        "model_id": model.model_id,
+        "modelId": model.model_id,  
+        "version": model.version,
+        "submittedOn": model.submitted_on, 
+        "updatedOn": model.updated_on,
         "name": model.name,
         "description": model.description,
+        "refUrl": model.ref_url, 
         "task": model.task,
         "languages": model.languages,
-        "active": model.active,
+        "license": model.license,
+        "domain": model.domain,
+        "inferenceEndPoint": model.inference_endpoint, 
+        "benchmarks": model.benchmarks,
+        "submitter": model.submitter,
         "created_at": model.created_at.isoformat() if model.created_at else None,
         "updated_at": model.updated_at.isoformat() if model.updated_at else None
     }
