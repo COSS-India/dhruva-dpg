@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from typing import Any, Callable, Dict, Optional, Union
 
@@ -217,14 +218,20 @@ async def _run_inference_sts(
     request_state: Request,
     inference_service: InferenceService = Depends(InferenceService),
 ):
+    def _req_env(key: str) -> str:
+        val = os.environ.get(key)
+        if not val:
+            raise BaseError(Errors.DHRUVA115.value, f"Missing required environment variable: {key}")
+        return val
+
     if request.config.language.sourceLanguage == "en":
-        serviceId = "ai4bharat/whisper--gpu-t4"
+        serviceId = _req_env("S2S_ASR_EN_SERVICE_ID")
     elif request.config.language.sourceLanguage == "hi":
-        serviceId = "ai4bharat/conformer-hi--gpu-t4"
+        serviceId = _req_env("S2S_ASR_HI_SERVICE_ID")
     elif request.config.language.sourceLanguage in {"kn", "ml", "ta", "te"}:
-        serviceId = "ai4bharat/conformer-multilingual-dravidian--gpu-t4"
+        serviceId = _req_env("S2S_ASR_DRAVIDIAN_SERVICE_ID")
     else:
-        serviceId = "ai4bharat/conformer-multilingual-indo-aryan--gpu-t4"
+        serviceId = _req_env("S2S_ASR_INDO_ARYAN_SERVICE_ID")
 
     asr_request = ULCAAsrInferenceRequest(
         audio=request.audio,
@@ -243,7 +250,7 @@ async def _run_inference_sts(
         controlConfig=request.controlConfig,
     )
 
-    translation_request.set_service_id("ai4bharat/indictrans--gpu-t4")
+    translation_request.set_service_id(_req_env("S2S_TRANSLATION_SERVICE_ID"))
 
     translation_response = await inference_service.run_translation_triton_inference(
         translation_request,
@@ -259,11 +266,11 @@ async def _run_inference_sts(
 
     request.config.language.sourceLanguage = request.config.language.targetLanguage
     if request.config.language.sourceLanguage in {"kn", "ml", "ta", "te"}:
-        serviceId = "ai4bharat/indic-tts-dravidian--gpu-t4"
+        serviceId = _req_env("S2S_TTS_DRAVIDIAN_SERVICE_ID")
     elif request.config.language.sourceLanguage in {"en", "brx", "mni"}:
-        serviceId = "ai4bharat/indic-tts-misc--gpu-t4"
+        serviceId = _req_env("S2S_TTS_MISC_SERVICE_ID")
     else:
-        serviceId = "ai4bharat/indic-tts-indo-aryan--gpu-t4"
+        serviceId = _req_env("S2S_TTS_INDO_ARYAN_SERVICE_ID")
 
     tts_request = ULCATtsInferenceRequest(
         config=request.config,

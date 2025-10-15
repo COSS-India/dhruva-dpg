@@ -1,4 +1,5 @@
 import base64
+import os
 import io
 import json
 import time
@@ -61,6 +62,15 @@ from .audio_service import AudioService
 from .post_processor_service import PostProcessorService
 from .subtitle_service import SubtitleService
 from .triton_utils_service import TritonUtilsService
+from config.constants import (
+    AUDIO_STANDARD_RATE_ASR,
+    AUDIO_STANDARD_RATE_TTS,
+    TRANSLATION_MAX_BATCH_SIZE,
+    TRITON_MODEL_NAME_NMT,
+    TRITON_MODEL_NAME_TTS,
+    TRITON_MODEL_NAME_VAD,
+    TRITON_MODEL_NAME_TRANSLITERATION,
+)
 
 
 def populate_service_cache(serviceId: str, service_repository: ServiceRepository):
@@ -157,6 +167,12 @@ class InferenceService:
         self.audio_service = audio_service
         self.triton_utils_service = triton_utils_service
 
+    def __get_required_env(self, key: str) -> str:
+        value = os.environ.get(key)
+        if not value:
+            raise BaseError(Errors.DHRUVA115.value, f"Missing required environment variable: {key}")
+        return value
+
     async def run_inference(
         self, request: ULCAInferenceRequest, api_key_name: str, user_id: str
     ) -> ULCAInferenceResponse:
@@ -224,7 +240,7 @@ class InferenceService:
         else:
             model_name = "asr_am_topk_ensemble"
 
-        standard_rate = 16000
+        standard_rate = AUDIO_STANDARD_RATE_ASR
 
         res = ULCAAsrInferenceResponse(output=[])
         for input in request_body.audio:
@@ -360,7 +376,7 @@ class InferenceService:
             for input in request_body.input
         ]
 
-        max_batch_size = 90
+        max_batch_size = TRANSLATION_MAX_BATCH_SIZE
         output_batch = []
         for i in range(0, len(input_texts), max_batch_size):
             inputs, outputs = self.triton_utils_service.get_translation_io_for_triton(
@@ -377,7 +393,7 @@ class InferenceService:
             ).time():
                 response = self.inference_gateway.send_triton_request(
                     url=service.endpoint,
-                    model_name="nmt",
+                    model_name=TRITON_MODEL_NAME_NMT,
                     input_list=inputs,
                     output_list=outputs,
                     headers=headers,
@@ -447,7 +463,7 @@ class InferenceService:
                 ).time():
                     response = self.inference_gateway.send_triton_request(
                         url=service.endpoint,
-                        model_name="transliteration",
+                        model_name=TRITON_MODEL_NAME_TRANSLITERATION,
                         input_list=inputs,
                         output_list=outputs,
                         headers=headers,
@@ -484,7 +500,7 @@ class InferenceService:
 
         ip_language = request_body.config.language.sourceLanguage
         ip_gender = request_body.config.gender.value
-        standard_rate = 22050
+        standard_rate = AUDIO_STANDARD_RATE_TTS
         target_sr = (
             22050
             if not request_body.config.samplingRate
@@ -533,7 +549,7 @@ class InferenceService:
                     ).time():
                         response = self.inference_gateway.send_triton_request(
                             url=service.endpoint,
-                            model_name="tts",
+                            model_name=TRITON_MODEL_NAME_TTS,
                             input_list=inputs,
                             output_list=outputs,
                             headers=headers,
@@ -635,7 +651,7 @@ class InferenceService:
         service: Service = validate_service_id(serviceId, self.service_repository)  # type: ignore
         headers = {"Authorization": "Bearer " + service.api_key}
 
-        standard_rate = 16000
+        standard_rate = AUDIO_STANDARD_RATE_ASR
 
         res = ULCAVadInferenceResponse(output=[])
 
@@ -666,7 +682,7 @@ class InferenceService:
             ).time():
                 response = self.inference_gateway.send_triton_request(
                     url=service.endpoint,
-                    model_name="vad",
+                    model_name=TRITON_MODEL_NAME_VAD,
                     input_list=inputs,
                     output_list=outputs,
                     headers=headers,
@@ -941,22 +957,22 @@ class InferenceService:
         match task_type:
             case _ULCATaskType.ASR:
                 if config["language"]["sourceLanguage"] == "en":
-                    serviceId = "ai4bharat/whisper-medium-en--gpu--t4"
+                    serviceId = self.__get_required_env("ASR_EN_SERVICE_ID")
                 elif config["language"]["sourceLanguage"] == "hi":
-                    serviceId = "ai4bharat/conformer-hi-gpu--t4"
+                    serviceId = self.__get_required_env("ASR_HI_SERVICE_ID")
                 elif config["language"]["sourceLanguage"] in {"kn", "ml", "ta", "te"}:
-                    serviceId = "ai4bharat/conformer-multilingual-dravidian-gpu--t4"
+                    serviceId = self.__get_required_env("ASR_DRAVIDIAN_SERVICE_ID")
                 else:
-                    serviceId = "ai4bharat/conformer-multilingual-indo_aryan-gpu--t4"
+                    serviceId = self.__get_required_env("ASR_INDO_ARYAN_SERVICE_ID")
             case _ULCATaskType.TRANSLATION:
-                serviceId = "ai4bharat/indictrans-v2-all-gpu--t4"
+                serviceId = self.__get_required_env("TRANSLATION_DEFAULT_SERVICE_ID")
             case _ULCATaskType.TTS:
                 if config["language"]["sourceLanguage"] in {"kn", "ml", "ta", "te"}:
-                    serviceId = "ai4bharat/indic-tts-coqui-dravidian-gpu--t4"
+                    serviceId = self.__get_required_env("TTS_DRAVIDIAN_SERVICE_ID")
                 elif config["language"]["sourceLanguage"] in {"en", "brx", "mni"}:
-                    serviceId = "ai4bharat/indic-tts-coqui-misc-gpu--t4"
+                    serviceId = self.__get_required_env("TTS_MISC_SERVICE_ID")
                 else:
-                    serviceId = "ai4bharat/indic-tts-coqui-indo_aryan-gpu--t4"
+                    serviceId = self.__get_required_env("TTS_INDO_ARYAN_SERVICE_ID")
             case _:
                 raise BaseError(Errors.DHRUVA115.value)
 
