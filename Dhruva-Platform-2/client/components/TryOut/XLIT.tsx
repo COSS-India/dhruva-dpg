@@ -77,7 +77,7 @@ const XLITTry: React.FC<Props> = (props) => {
               targetScriptCode: "",
             },
             isSentence: true,
-            numSuggestions: 5,
+            numSuggestions: 0,
           },
           controlConfig: {
             dataTracking: true,
@@ -106,7 +106,7 @@ const XLITTry: React.FC<Props> = (props) => {
                   targetScriptCode: "",
                 },
                 isSentence: true,
-                numSuggestions: 5,
+                numSuggestions: 0,
               },
               taskType: ULCATaskType.TRANSLITERATION,
             },

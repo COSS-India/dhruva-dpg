@@ -306,3 +306,17 @@ async def _run_inference_pipeline(
     inference_service: InferenceService = Depends(InferenceService),
 ):
     return await inference_service.run_pipeline_inference(request, request_state)
+
+@router.post("/pipeline/txt-lang-detection", response_model=ULCAPipelineInferenceResponse)
+async def _run_pipeline_text_lang_detection(
+    request: ULCAPipelineInferenceRequest,
+    request_state: Request,
+    inference_service: InferenceService = Depends(InferenceService),
+):
+    """
+    Pipeline text language detection endpoint.
+    Calls Triton inference service (currently with mock response until real endpoint is available).
+    """
+    return await inference_service.run_pipeline_text_lang_detection_inference(
+        request, request_state.state.api_key_name, request_state.state.user_id
+    )
