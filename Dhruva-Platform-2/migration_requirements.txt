@@ -1,0 +1,18 @@
+# Python requirements for migrate_data.py
+# These are the minimal requirements needed to run the migration script outside Docker
+
+pymongo==4.3.3
+python-dotenv==0.21.0
+
+# psycopg2-binary: Prefer binary version (no system dependencies needed)
+# If installation fails, install system dependencies first:
+#   sudo apt update && sudo apt install -y libpq-dev python3-dev build-essential
+# Then try: pip install psycopg2-binary
+# Or use regular psycopg2: pip install psycopg2
+psycopg2-binary>=2.9.0
+
+# Note: For Python 3.12+, you may need to:
+# 1. Install system dependencies: libpq-dev python3-dev build-essential
+# 2. Use a recent version of psycopg2-binary
+# 3. Or use regular psycopg2 if binary version doesn't work
+

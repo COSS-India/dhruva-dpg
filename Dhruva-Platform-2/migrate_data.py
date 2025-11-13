@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 import pymongo
+from pymongo.errors import InvalidURI, ServerSelectionTimeoutError
 import psycopg2
 from psycopg2.extras import Json, RealDictCursor
 from bson import ObjectId
@@ -19,10 +20,28 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # MongoDB connection
-MONGO_APP_DB_CONNECTION = os.environ.get(
-    "APP_DB_CONNECTION_STRING",
-    "mongodb://dhruvaadmin:dhruva123@localhost:27017/admin?authSource=admin"
-)
+# Use MONGO_DB_CONNECTION_STRING if set, otherwise check APP_DB_CONNECTION_STRING,
+# but validate it's a MongoDB URI (not PostgreSQL)
+MONGO_APP_DB_CONNECTION = os.environ.get("MONGO_DB_CONNECTION_STRING")
+
+# If not set, try APP_DB_CONNECTION_STRING but validate it's MongoDB
+if not MONGO_APP_DB_CONNECTION:
+    app_db_conn = os.environ.get("APP_DB_CONNECTION_STRING")
+    if app_db_conn and app_db_conn.startswith(("mongodb://", "mongodb+srv://")):
+        MONGO_APP_DB_CONNECTION = app_db_conn
+    else:
+        # Use default MongoDB connection string
+        MONGO_APP_DB_CONNECTION = "mongodb://dhruvaadmin:dhruva123@localhost:27017/admin?authSource=admin"
+
+# Validate MongoDB connection string
+if not MONGO_APP_DB_CONNECTION.startswith(("mongodb://", "mongodb+srv://")):
+    raise ValueError(
+        f"Invalid MongoDB connection string: {MONGO_APP_DB_CONNECTION}\n"
+        f"Connection string must start with 'mongodb://' or 'mongodb+srv://'\n"
+        f"Please set MONGO_DB_CONNECTION_STRING environment variable or ensure "
+        f"APP_DB_CONNECTION_STRING points to MongoDB (not PostgreSQL).\n"
+        f"Example: mongodb://dhruvaadmin:dhruva123@localhost:27017/admin?authSource=admin"
+    )
 
 # PostgreSQL connection for app database
 POSTGRES_APP_DB_CONNECTION = {
@@ -54,20 +73,46 @@ class DataMigrator:
         """Connect to MongoDB and PostgreSQL databases"""
         try:
             # Connect to MongoDB
-            self.mongo_client = pymongo.MongoClient(MONGO_APP_DB_CONNECTION)
-            self.mongo_db = self.mongo_client[os.environ.get("APP_DB_NAME", "admin")]
-            print("✓ Connected to MongoDB")
+            print(f"Connecting to MongoDB: {MONGO_APP_DB_CONNECTION.split('@')[-1] if '@' in MONGO_APP_DB_CONNECTION else 'localhost'}")
+            self.mongo_client = pymongo.MongoClient(MONGO_APP_DB_CONNECTION, serverSelectionTimeoutMS=5000)
+            
+            # Test MongoDB connection
+            self.mongo_client.admin.command('ping')
+            
+            # Get database name from connection string or environment variable
+            # Default to 'admin' if not specified
+            mongo_db_name = os.environ.get("MONGO_DB_NAME") or os.environ.get("APP_DB_NAME", "admin")
+            self.mongo_db = self.mongo_client[mongo_db_name]
+            print(f"✓ Connected to MongoDB database: {mongo_db_name}")
             
             # Connect to PostgreSQL app database
+            print(f"Connecting to PostgreSQL app database: {POSTGRES_APP_DB_CONNECTION['host']}:{POSTGRES_APP_DB_CONNECTION['port']}")
             self.pg_app_conn = psycopg2.connect(**POSTGRES_APP_DB_CONNECTION)
             self.pg_app_conn.autocommit = False
             print("✓ Connected to PostgreSQL app database")
             
             # Connect to PostgreSQL log database
+            print(f"Connecting to PostgreSQL log database: {POSTGRES_LOG_DB_CONNECTION['host']}:{POSTGRES_LOG_DB_CONNECTION['port']}")
             self.pg_log_conn = psycopg2.connect(**POSTGRES_LOG_DB_CONNECTION)
             self.pg_log_conn.autocommit = False
             print("✓ Connected to PostgreSQL log database")
             
+        except ServerSelectionTimeoutError as e:
+            print(f"✗ MongoDB connection failed: Could not connect to MongoDB server")
+            print(f"  Connection string: {MONGO_APP_DB_CONNECTION.split('@')[-1] if '@' in MONGO_APP_DB_CONNECTION else MONGO_APP_DB_CONNECTION}")
+            print(f"  Error: {e}")
+            print(f"  Make sure MongoDB is running and accessible.")
+            raise
+        except InvalidURI as e:
+            print(f"✗ MongoDB connection string is invalid: {e}")
+            print(f"  Current value: {MONGO_APP_DB_CONNECTION}")
+            print(f"  Connection string must start with 'mongodb://' or 'mongodb+srv://'")
+            print(f"  Set MONGO_DB_CONNECTION_STRING environment variable if needed.")
+            raise
+        except psycopg2.OperationalError as e:
+            print(f"✗ PostgreSQL connection failed: {e}")
+            print(f"  Make sure PostgreSQL databases are running and accessible.")
+            raise
         except Exception as e:
             print(f"✗ Database connection failed: {e}")
             raise

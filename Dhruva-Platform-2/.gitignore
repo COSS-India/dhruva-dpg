@@ -1,6 +1,7 @@
 *.env
 *.pyc
 server/venv
+migration_venv/
 .DS_Store
 __pycache__
 appdb
