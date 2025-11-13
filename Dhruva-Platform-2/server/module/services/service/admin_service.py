@@ -1,0 +1,233 @@
+import datetime
+import traceback
+
+from exception.base_error import BaseError
+from exception.client_error import ClientError
+from fastapi import Depends, status
+from schema.auth.response.get_all_api_keys_response import GetAllApiKeysDetailsResponse
+from schema.services.request import (
+    ModelCreateRequest,
+    ModelUpdateRequest,
+    ServiceCreateRequest,
+    ServiceHeartbeatRequest,
+    ServiceUpdateRequest,
+)
+
+from ...auth.service.auth_service import AuthService
+from ..error.errors import Errors
+from ..model import ModelCache, Service, ServiceCache
+from db.postgresql_models import Model
+from db.postgresql_models import Service as SQLService
+from redis_om.model.model import NotFoundError
+from ..repository import ModelRepository, ServiceRepository
+
+
+class AdminService:
+    def __init__(
+        self,
+        service_repository: ServiceRepository = Depends(ServiceRepository),
+        model_repository: ModelRepository = Depends(ModelRepository),
+        auth_service: AuthService = Depends(AuthService),
+    ):
+        self.service_repository = service_repository
+        self.model_repository = model_repository
+        self.auth_service = auth_service
+
+    def view_dashboard(self, page, limit, target_user_id):
+        try:
+            (
+                api_keys,
+                total_usage,
+                total_pages,
+            ) = self.auth_service.get_all_api_keys_with_usage(
+                page, limit, target_user_id
+            )
+        except Exception:
+            raise BaseError(Errors.DHRUVA109.value, traceback.format_exc())
+
+        return GetAllApiKeysDetailsResponse(
+            api_keys=api_keys,
+            total_usage=total_usage,
+            page=page,
+            limit=limit,
+            total_pages=total_pages,
+        )
+
+    def create_service(self, request: ServiceCreateRequest):
+        svc = request.dict(by_alias=True)
+
+        # Build SQLAlchemy model instance for insertion
+        service_record = SQLService(
+            service_id=svc["serviceId"],
+            name=svc["name"],
+            service_description=svc["serviceDescription"],
+            hardware_description=svc["hardwareDescription"],
+            published_on=svc["publishedOn"],
+            model_id=svc["modelId"],
+            endpoint=svc["endpoint"],
+            api_key=svc["api_key"],
+            health_status=None,
+            benchmarks=svc.get("benchmarks")
+        )
+
+        insert_id = self.service_repository.insert_one(service_record)
+
+        # Populate cache using original (alias-preserving) payload
+        svc.update({"_id": insert_id})
+        cache = ServiceCache(**svc)
+        cache.save()
+        return insert_id
+
+    def _json_safe(self, value):
+        # Recursively convert datetime objects to ISO strings inside JSON structures
+        import datetime as _dt
+        if isinstance(value, dict):
+            return {k: self._json_safe(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._json_safe(v) for v in value]
+        if isinstance(value, _dt.datetime):
+            return value.isoformat()
+        return value
+
+    def create_model(self, request: ModelCreateRequest):
+        mdl = request.dict()
+        
+        # Transform camelCase to snake_case for PostgreSQL
+        postgres_data = {
+            "model_id": mdl["modelId"],
+            "version": mdl["version"],
+            "submitted_on": mdl["submittedOn"],
+            "updated_on": mdl["updatedOn"],
+            "name": mdl["name"],
+            "description": mdl["description"],
+            "ref_url": mdl["refUrl"],
+            # JSONB fields serialized safely
+            "task": self._json_safe(mdl["task"]),
+            "languages": self._json_safe(mdl["languages"]),
+            "license": mdl["license"],
+            "domain": self._json_safe(mdl["domain"]),
+            "inference_endpoint": self._json_safe(mdl["inferenceEndPoint"]),
+            "benchmarks": self._json_safe(mdl.get("benchmarks")),
+            "submitter": self._json_safe(mdl["submitter"])
+        }
+        
+        model = Model(**postgres_data)
+        insert_id = self.model_repository.insert_one(model)
+
+        # Do NOT overwrite modelId; cache is keyed by modelId
+        cache = ModelCache(**mdl)
+        cache.save()
+        return insert_id
+
+    def update_service(self, request: ServiceUpdateRequest):
+        # Enforce cache presence; raise 404 if missing
+        try:
+            cache = ServiceCache.get(request.serviceId)
+        except NotFoundError:
+            raise ClientError(status.HTTP_404_NOT_FOUND, message="Service not found in cache")
+
+        request_dict = request.dict()
+
+        # Update cache: only fields defined and non-null
+        new_cache = cache.dict()
+        for key, value in request_dict.items():
+            if key in cache.__fields__ and value is not None:
+                new_cache[key] = value
+        ServiceCache(**new_cache).save()
+
+        # Build SQL update payload (snake_case)
+        update_data = {}
+        if request.name is not None:
+            update_data["name"] = request.name
+        if request.serviceDescription is not None:
+            update_data["service_description"] = request.serviceDescription
+        if request.hardwareDescription is not None:
+            update_data["hardware_description"] = request.hardwareDescription
+        if request.endpoint is not None:
+            update_data["endpoint"] = request.endpoint
+        # languagePair is not persisted on services table; skip
+
+        if not update_data:
+            return 0
+
+        # Update by business key (service_id)
+        return self.service_repository.update_by_service_id(request.serviceId, update_data)
+
+    def update_model(self, request: ModelUpdateRequest):
+        request_dict = request.dict()
+
+        # Require presence in cache (consistent behavior): 404 if not found
+        try:
+            cache = ModelCache.get(request.modelId)
+        except Exception:
+            raise ClientError(status.HTTP_404_NOT_FOUND, message="Model not found in cache")
+
+        # Cache ignores all complex fields
+        new_cache = cache.dict()
+        for key, value in request_dict.items():
+            if key in cache.__fields__ and value:
+                new_cache[key] = value
+        new_cache = ModelCache(**new_cache)
+        new_cache.save()
+
+        # Transform camelCase to snake_case for PostgreSQL
+        postgres_data = {}
+        for key, value in request_dict.items():
+            if value is not None:  # Only include non-null values
+                if key == "modelId":
+                    # filter will use model_id; do not include in data
+                    continue
+                elif key == "refUrl":
+                    postgres_data["ref_url"] = value
+                elif key == "inferenceEndPoint":
+                    postgres_data["inference_endpoint"] = self._json_safe(value)
+                elif key in ("task", "languages", "domain", "benchmarks", "submitter"):
+                    postgres_data[key] = self._json_safe(value)
+                else:
+                    postgres_data[key] = value
+
+        # Use update_by_filter with model_id filter
+        return self.model_repository.update_by_filter({"model_id": request.modelId}, postgres_data)
+
+    def delete_service(self, id):
+        ServiceCache.delete(id)
+        return self.service_repository.delete_one(id)
+
+    def delete_model(self, id):
+        ModelCache.delete(id)
+        return self.model_repository.delete_one(id)
+
+    def inference_service_status(self, request_body: ServiceHeartbeatRequest):
+        try:
+            service = self.service_repository.find_by_service_id(request_body.serviceId)
+            if not service:
+                raise BaseError(Errors.DHRUVA104.value)
+            
+            # Convert SQLAlchemy model to dict
+            service_dict = {
+                "id": str(service.id),
+                "service_id": service.service_id,
+                "name": service.name,
+                "service_description": service.service_description,
+                "hardware_description": service.hardware_description,
+                "published_on": service.published_on,
+                "model_id": service.model_id,
+                "endpoint": service.endpoint,
+                "api_key": service.api_key,
+                "health_status": service.health_status,
+                "benchmarks": service.benchmarks,
+                "created_at": service.created_at.isoformat() if service.created_at else None,
+                "updated_at": service.updated_at.isoformat() if service.updated_at else None
+            }
+            
+            if "health_status" not in service_dict or service_dict["health_status"] is None:
+                service_dict["health_status"] = {}
+            service_dict["health_status"]["status"] = request_body.status
+            service_dict["health_status"]["lastUpdated"] = str(datetime.datetime.now())
+            
+            # Update only the health_status field
+            update_data = {"health_status": service_dict["health_status"]}
+            self.service_repository.update_one(service.id, update_data)
+            return {"message": "Service status updated successfully"}
+        except:
+            raise BaseError(Errors.DHRUVA113.value, traceback.format_exc())
