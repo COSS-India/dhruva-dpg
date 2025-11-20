@@ -1,31 +1,29 @@
+import { IndicTransliterate } from "@ai4bharat/indic-transliterate";
 import {
-  Stack,
-  Text,
-  Select,
+  Box,
   Button,
-  Textarea,
-  Progress,
   Grid,
   GridItem,
-  Stat,
-  StatLabel,
-  StatNumber,
-  StatHelpText,
-  SimpleGrid,
-  useToast,
   NumberInput,
   NumberInputField,
-  Box,
+  Progress,
+  Select,
+  SimpleGrid,
+  Stack,
+  Stat,
+  StatHelpText,
+  StatLabel,
+  StatNumber,
+  Text,
+  Textarea,
+  useToast,
 } from "@chakra-ui/react";
+import React, { useEffect, useState } from "react";
 import { FaRegFileAudio } from "react-icons/fa";
-import { useState, useEffect } from "react";
-import { IndicTransliterate } from "@ai4bharat/indic-transliterate";
-import { dhruvaAPI, apiInstance } from "../../api/apiConfig";
+import { apiInstance, dhruvaAPI } from "../../api/apiConfig";
 import { lang2label } from "../../config/config";
-import { getWordCount } from "../../utils/utils";
-import React from "react";
 import useMediaQuery from "../../hooks/useMediaQuery";
-import { FeedbackModal } from "../Feedback/Feedback";
+import { getWordCount } from "../../utils/utils";
 import {
   PipelineInput,
   PipelineOutput,
@@ -56,7 +54,7 @@ const TTSTry: React.FC<Props> = (props) => {
   const [requestWordCount, setRequestWordCount] = useState(0);
   const [requestTime, setRequestTime] = useState("");
   const [audioDuration, setAudioDuration] = useState(0);
-  const toast = useToast()
+  const toast = useToast();
   const [pipelineInput, setPipelineInput] = useState<
     PipelineInput | undefined
   >();
@@ -159,10 +157,16 @@ const TTSTry: React.FC<Props> = (props) => {
       <IndicTransliterate
         renderComponent={(props) => (
           <>
-          <Textarea  resize="none" h={200} {...props} />
-          <Box>
-            <Text float={"right"} fontSize={"sm"} color={(tltText.length<=512 ?"gray.300":"red.300")}>{tltText.length}/512</Text>
-          </Box>
+            <Textarea resize="none" h={200} {...props} />
+            <Box>
+              <Text
+                float={"right"}
+                fontSize={"sm"}
+                color={tltText.length <= 512 ? "gray.300" : "red.300"}
+              >
+                {tltText.length}/512
+              </Text>
+            </Box>
           </>
         )}
         onChangeText={(text: string) => {
@@ -293,18 +297,15 @@ const TTSTry: React.FC<Props> = (props) => {
             <Stack direction={"column"} gap={5}>
               <Button
                 onClick={() => {
-                  if(tltText.length <= 512)
-                  {
+                  if (tltText.length <= 512) {
                     getTTSAudio(tltText);
-                  }
-                  else
-                  {
+                  } else {
                     toast({
-                      title: 'Character limit exceeded',
-                      status: 'warning',
+                      title: "Character limit exceeded",
+                      status: "warning",
                       duration: 3000,
                       isClosable: true,
-                    })
+                    });
                   }
                 }}
               >
@@ -312,13 +313,13 @@ const TTSTry: React.FC<Props> = (props) => {
               </Button>
               <audio style={{ width: "auto" }} src={audio} controls />
 
-              {fetched && (
+              {/* {fetched && (
                 <FeedbackModal
                   pipelineInput={pipelineInput}
                   pipelineOutput={pipelineOuput}
                   taskType={ULCATaskType.TTS}
                 />
-              )}
+              )} */}
             </Stack>
           </Stack>
         </GridItem>

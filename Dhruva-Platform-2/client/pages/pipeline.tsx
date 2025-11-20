@@ -3,22 +3,21 @@ import {
   Grid,
   GridItem,
   Heading,
+  Progress,
   Select,
+  SimpleGrid,
   Stack,
+  Stat,
+  StatHelpText,
+  StatLabel,
+  StatNumber,
   Tab,
   TabList,
   TabPanel,
   TabPanels,
   Tabs,
   Text,
-  Box,
   Textarea,
-  Stat,
-  StatLabel,
-  StatNumber,
-  StatHelpText,
-  SimpleGrid,
-  Progress,
 } from "@chakra-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
@@ -26,16 +25,15 @@ import { useEffect, useState } from "react";
 import { FaMicrophone } from "react-icons/fa";
 import { apiInstance, dhruvaAPI } from "../api/apiConfig";
 import { listServices } from "../api/serviceAPI";
+import {
+  PipelineInput,
+  PipelineOutput,
+  ULCATaskType,
+} from "../components/Feedback/FeedbackTypes";
 import ContentLayout from "../components/Layouts/ContentLayout";
 import { lang2label } from "../config/config";
 import useMediaQuery from "../hooks/useMediaQuery";
 import { getWordCount } from "../utils/utils";
-import {
-  PipelineInput,
-  PipelineOutput,
-} from "../components/Feedback/FeedbackTypes";
-import { ULCATaskType } from "../components/Feedback/FeedbackTypes";
-import { FeedbackModal } from "../components/Feedback/Feedback";
 
 function PipelineInterface() {
   const { data: services } = useQuery(["services"], listServices);
@@ -527,13 +525,13 @@ function PipelineInterface() {
             <Textarea readOnly value={sourceText} />
             <Textarea readOnly value={targetText} />
             <audio style={{ width: "auto" }} src={audio} controls />
-            {pipelineOutput && (
+            {/* {pipelineOutput && (
               <FeedbackModal
                 pipelineInput={pipelineInput}
                 pipelineOutput={pipelineOutput}
                 taskType={[ULCATaskType.ASR, ULCATaskType.TRANSLATION, ULCATaskType.TTS]}
               />
-            )}
+            )} */}
           </Stack>
         </Stack>
       </GridItem>

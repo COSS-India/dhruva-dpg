@@ -1,22 +1,20 @@
 import {
-  Text,
   Box,
-  SimpleGrid,
   Button,
   Divider,
-  Avatar,
-  useColorModeValue,
   HStack,
-  Spacer,
+  Image,
+  SimpleGrid,
+  Text,
+  useColorModeValue,
 } from "@chakra-ui/react";
-import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import React, { useEffect, useState } from "react";
+import { BiChart } from "react-icons/bi";
 import { IoConstructOutline, IoGridOutline } from "react-icons/io5";
 import { MdOutlineAdminPanelSettings } from "react-icons/md";
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/router";
-import Link from "next/link";
 import { RiFlowChart } from "react-icons/ri";
-import { BiChart } from "react-icons/bi";
 
 const Sidebar: React.FC = () => {
   const bg = useColorModeValue("light.100", "dark.100");
@@ -70,17 +68,39 @@ const Sidebar: React.FC = () => {
         <Box h="4rem" mt={4} justifyContent="flex-start">
           <HStack justifyContent="center" alignItems="center">
             {!isOpen ? (
-              <Text fontSize="2xl" fontWeight="bold" color="gray.600">
-                D
-              </Text>
+              <Image
+                src="/AI4Inclusion_Logo.svg"
+                alt="AI4Inclusion Logo"
+                boxSize={24}
+                objectFit="contain"
+                fallback={
+                  <Box
+                    boxSize="40px"
+                    bg="orange.500"
+                    borderRadius="md"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    color="white"
+                    fontWeight="bold"
+                    fontSize="lg"
+                  >
+                    AI
+                  </Box>
+                }
+              />
             ) : (
-              <Text marginLeft={4} fontSize={"x-large"} fontWeight={"bold"}>
-                Dhruva
-              </Text>
+              <Image
+                src="/AI4Inclusion_Logo.svg"
+                alt="AI4Inclusion Logo"
+                boxSize={24}
+                objectFit="contain"
+              />
             )}
           </HStack>
+          <Divider />
         </Box>
-        <Divider />
+
         <SimpleGrid
           spacingY={4}
           spacingX={1}

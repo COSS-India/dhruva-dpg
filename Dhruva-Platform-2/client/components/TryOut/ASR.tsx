@@ -1,35 +1,33 @@
+import { CloseIcon } from "@chakra-ui/icons";
 import {
-  Stack,
-  Text,
-  Select,
+  Box,
   Button,
-  Textarea,
   Grid,
   GridItem,
-  Progress,
+  HStack,
   Input,
+  Progress,
+  Select,
+  SimpleGrid,
+  Spacer,
+  Stack,
   Stat,
+  StatHelpText,
   StatLabel,
   StatNumber,
-  StatHelpText,
-  SimpleGrid,
-  Box,
-  HStack,
-  Spacer,
+  Text,
+  Textarea,
   useToast,
 } from "@chakra-ui/react";
+import {
+  SocketStatus,
+  StreamingClient,
+} from "@project-sunbird/open-speech-streaming-client";
+import React, { useEffect, useState } from "react";
 import { FaMicrophone } from "react-icons/fa";
-import { useState, useEffect } from "react";
-import { dhruvaAPI, apiInstance } from "../../api/apiConfig";
+import { apiInstance, dhruvaAPI } from "../../api/apiConfig";
 import { lang2label } from "../../config/config";
 import { getWordCount } from "../../utils/utils";
-import {
-  StreamingClient,
-  SocketStatus,
-} from "@project-sunbird/open-speech-streaming-client";
-import { CloseIcon } from "@chakra-ui/icons";
-import React from "react";
-import { FeedbackModal } from "../Feedback/Feedback";
 import {
   PipelineInput,
   PipelineOutput,
@@ -429,13 +427,13 @@ const ASRTry: React.FC<Props> = (props) => {
                 />
               </Stack>
             </Stack>
-            {pipelineOutput && (
+            {/* {pipelineOutput && (
               <FeedbackModal
                 pipelineInput={pipelineInput}
                 pipelineOutput={pipelineOutput}
                 taskType={ULCATaskType.ASR}
               />
-            )}
+            )} */}
           </GridItem>
         ) : (
           <GridItem>

@@ -1,29 +1,27 @@
 import {
-  Stack,
-  Text,
-  Select,
   Button,
-  Textarea,
-  Progress,
   Grid,
   GridItem,
+  Progress,
+  Select,
+  SimpleGrid,
+  Stack,
   Stat,
+  StatHelpText,
   StatLabel,
   StatNumber,
-  StatHelpText,
-  SimpleGrid,
+  Text,
+  Textarea,
 } from "@chakra-ui/react";
-import { useEffect, useState } from "react";
-import { dhruvaAPI, apiInstance } from "../../api/apiConfig";
+import React, { useEffect, useState } from "react";
+import { apiInstance, dhruvaAPI } from "../../api/apiConfig";
 import { lang2label } from "../../config/config";
 import { getWordCount } from "../../utils/utils";
-import React from "react";
 import {
   PipelineInput,
   PipelineOutput,
   ULCATaskType,
 } from "../Feedback/FeedbackTypes";
-import { FeedbackModal } from "../Feedback/Feedback";
 
 interface LanguageConfig {
   sourceLanguage: string;
@@ -232,13 +230,13 @@ const XLITTry: React.FC<Props> = (props) => {
           >
             Transliterate
           </Button>
-          {fetched && (
+          {/* {fetched && (
             <FeedbackModal
               pipelineInput={pipelineInput}
               pipelineOutput={pipelineOutput}
               taskType={ULCATaskType.TRANSLATION}
             />
-          )}
+          )} */}
         </Stack>
       </GridItem>
     </Grid>
