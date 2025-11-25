@@ -1,0 +1,27 @@
+services:
+  client:
+    image: dhruva-platform-client:latest
+    container_name: dhruva-platform-client
+    restart: always
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"  # Map external port 3001 to internal port 3000
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=https://dhruva-dpg.ai4inclusion.org/api  # Legacy env var used in a few places
+      - NEXT_PUBLIC_BACKEND_API_URL=https://dhruva-dpg.ai4inclusion.org/api
+    networks:
+      - dhruva-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+ 
+networks:
+  dhruva-network:
+    name: dhruva-network
+    external: true  # Use the existing network created by other services

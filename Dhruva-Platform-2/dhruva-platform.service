@@ -1,0 +1,23 @@
+[Unit]
+Description=Dhruva Platform Docker Compose Services
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/ubuntu/dhruva-dpg/Dhruva-Platform-2
+ExecStart=/home/ubuntu/dhruva-dpg/Dhruva-Platform-2/start-all-services.sh
+ExecStop=/bin/bash -c 'cd /home/ubuntu/dhruva-dpg/Dhruva-Platform-2 && docker-compose -f docker-compose-db.yml -f docker-compose-metering.yml -f docker-compose-monitoring.yml -f docker-compose-app.yml -f docker-compose-client.yml down'
+TimeoutStartSec=0
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+
+
+
+
+

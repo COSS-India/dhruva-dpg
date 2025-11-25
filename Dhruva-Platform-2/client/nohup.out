@@ -1,0 +1,72 @@
+
+up to date, audited 486 packages in 4s
+
+117 packages are looking for funding
+  run `npm fund` for details
+
+22 vulnerabilities (1 low, 9 moderate, 9 high, 3 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.
+
+up to date, audited 486 packages in 10s
+
+117 packages are looking for funding
+  run `npm fund` for details
+
+22 vulnerabilities (1 low, 9 moderate, 9 high, 3 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.
+
+up to date, audited 486 packages in 7s
+
+117 packages are looking for funding
+  run `npm fund` for details
+
+22 vulnerabilities (1 low, 9 moderate, 9 high, 3 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.
+
+up to date, audited 486 packages in 8s
+
+117 packages are looking for funding
+  run `npm fund` for details
+
+22 vulnerabilities (1 low, 9 moderate, 9 high, 3 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
+
+Run `npm audit` for details.
