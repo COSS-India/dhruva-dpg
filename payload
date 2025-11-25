@@ -1,0 +1,29 @@
+curl -X POST "http://3.110.118.163:8000/v2/models/nllb_translation/infer" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "inputs": [
+      {
+        "name": "INPUT_TEXT",
+        "shape": [1, 1],
+        "datatype": "BYTES",
+        "data": [["Hello, how are you today?"]]
+      },
+      {
+        "name": "INPUT_LANGUAGE_ID",
+        "shape": [1, 1],
+        "datatype": "BYTES",
+        "data": [["en"]]
+      },
+      {
+        "name": "OUTPUT_LANGUAGE_ID",
+        "shape": [1, 1],
+        "datatype": "BYTES",
+        "data": [["sw"]]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "OUTPUT_TEXT"
+      }
+    ]
+  }'
