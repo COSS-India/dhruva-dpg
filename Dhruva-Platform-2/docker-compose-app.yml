@@ -1,4 +1,4 @@
-#made changes to get this file working for the first time. 
+#made changes to get this file working for the first time.
 
 services:
   server:
@@ -13,7 +13,7 @@ services:
     env_file: .env
     command: python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
-      - ./server:/src  
+      - ./server:/src
     depends_on:
       redis:
         condition: service_healthy
@@ -80,7 +80,6 @@ services:
     networks:
       - dhruva-network
 
-
 volumes:
   timescaledb_data:
   app_db_pg_data:
@@ -90,3 +89,4 @@ volumes:
 networks:
   dhruva-network:
     name: dhruva-network
+    external: true

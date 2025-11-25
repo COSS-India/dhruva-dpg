@@ -51,7 +51,7 @@ apiInstance.interceptors.response.use(
   (error) => {
     const originalRequest = error.config;
     if (
-      error.response.status === 401 &&
+      error.response?.status === 401 &&
       !originalRequest._retry &&
       originalRequest.url !== `${dhruvaRootURL}/auth/refresh`
     ) {
@@ -92,4 +92,4 @@ apiInstance.interceptors.response.use(
   }
 );
 
-export { dhruvaAPI, apiInstance };
+export { apiInstance, dhruvaAPI };

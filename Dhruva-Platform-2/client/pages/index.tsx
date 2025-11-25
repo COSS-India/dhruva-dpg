@@ -1,19 +1,18 @@
 import {
+  Button,
   Grid,
   GridItem,
-  Image,
   Heading,
-  Stack,
   Input,
-  Button,
+  Stack,
   useMediaQuery,
   useToast,
 } from "@chakra-ui/react";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
-import Head from "next/head";
-import { login } from "../api/authAPI";
 import { useMutation } from "@tanstack/react-query";
+import Head from "next/head";
+import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
+import { login } from "../api/authAPI";
 
 export default function Login() {
   const router = useRouter();
@@ -29,24 +28,24 @@ export default function Login() {
       localStorage.getItem("refresh_token") &&
       localStorage.getItem("access_token")
     ) {
-      if (localStorage.getItem("currentpage")) 
-      {
+      if (localStorage.getItem("currentpage")) {
         router.push(localStorage.getItem("current_page"));
-      } 
-      else 
-      {
+      } else {
         router.push("/services");
       }
     }
   }, []);
 
   const validateCredentials = () => {
-    console.log('Attempting login with:', { email: username, password: password });
+    console.log("Attempting login with:", {
+      email: username,
+      password: password,
+    });
     mutation.mutate(
       { email: username, password: password },
       {
         onSuccess: (data) => {
-          console.log('Login successful:', data);
+          console.log("Login successful:", data);
           localStorage.setItem("email", username);
           if (localStorage.getItem("current_page")) {
             router.push(localStorage.getItem("current_page"));
@@ -55,8 +54,11 @@ export default function Login() {
           }
         },
         onError: (error: any) => {
-          console.error('Login error:', error);
-          if (error?.response?.status === 401 || error?.response?.status === 422) {
+          console.error("Login error:", error);
+          if (
+            error?.response?.status === 401 ||
+            error?.response?.status === 422
+          ) {
             toast({
               title: "Error",
               description: "Invalid Credentials",
@@ -67,7 +69,9 @@ export default function Login() {
           } else {
             toast({
               title: "Error",
-              description: error?.response?.data?.message || "Something went wrong, please try again later",
+              description:
+                error?.response?.data?.message ||
+                "Something went wrong, please try again later",
               status: "error",
               duration: 5000,
               isClosable: true,

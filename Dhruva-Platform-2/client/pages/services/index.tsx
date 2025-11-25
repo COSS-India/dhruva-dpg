@@ -1,12 +1,15 @@
 import {
   Box,
   Button,
+  IconButton,
   Input,
   InputGroup,
   InputLeftElement,
+  InputRightElement,
   Select,
   Stack,
 } from "@chakra-ui/react";
+import { CloseIcon } from "@chakra-ui/icons";
 import { IoSearchOutline } from "react-icons/io5";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import ContentLayout from "../../components/Layouts/ContentLayout";
@@ -24,83 +27,104 @@ export default function Services() {
   const [sourceLang, setSourceLanguage] = useState<string>("");
   const [targetLang, setTargetLanguage] = useState<string>("");
   const [task, setTask] = useState<string>("");
-  const [filteredservices, setFilteredServices] = useState<ServiceList[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [searchedservices, setSearchedServices] = useState<ServiceList[]>([]);
   const [hide, togglehide] = useState<boolean>(true);
   const [hideTarget, setHideTarget] = useState<boolean>(true);
   const smallscreen = useMediaQuery("(max-width: 1080px)");
   const [seed, setSeed] = useState<number>(0);
+
+  // Unified function to apply both filters and search together
+  const applyFiltersAndSearch = (
+    servicesData: ServiceList[],
+    search: string,
+    taskFilter: string,
+    sourceLangFilter: string,
+    targetLangFilter: string
+  ) => {
+    if (!servicesData) return [];
+
+    let filtered = servicesData;
+
+    // Apply task filter
+    if (taskFilter !== "") {
+      filtered = filtered.filter((service) =>
+        service.task.type.includes(taskFilter)
+      );
+    }
+
+    // Apply language filters
+    if (sourceLangFilter !== "" || targetLangFilter !== "") {
+      filtered = filtered.filter((service) => {
+        // Check if service has matching languages
+        let hasMatchingSource = sourceLangFilter === "";
+        let hasMatchingTarget = targetLangFilter === "";
+        let hasMatchingPair = false;
+
+        // If both filters are set, we need to find a language pair that matches both
+        if (sourceLangFilter !== "" && targetLangFilter !== "") {
+          hasMatchingPair = service.languages.some(
+            (language: {
+              sourceLanguage: string;
+              targetLanguage: string;
+            }) =>
+              language.sourceLanguage === sourceLangFilter &&
+              language.targetLanguage === targetLangFilter
+          );
+          return hasMatchingPair;
+        }
+
+        // If only source language filter is set
+        if (sourceLangFilter !== "" && targetLangFilter === "") {
+          hasMatchingSource = service.languages.some(
+            (language: {
+              sourceLanguage: string;
+              targetLanguage: string;
+            }) => language.sourceLanguage === sourceLangFilter
+          );
+          return hasMatchingSource;
+        }
+
+        // If only target language filter is set
+        if (sourceLangFilter === "" && targetLangFilter !== "") {
+          hasMatchingTarget = service.languages.some(
+            (language: {
+              sourceLanguage: string;
+              targetLanguage: string;
+            }) => language.targetLanguage === targetLangFilter
+          );
+          return hasMatchingTarget;
+        }
+
+        return true;
+      });
+    }
+
+    // Apply search filter
+    if (search !== "") {
+      filtered = filtered.filter((service) =>
+        service.name?.toLowerCase().includes(search?.toLowerCase())
+      );
+    }
+
+    return filtered;
+  };
+
   const clearFilters = () => {
     setTask("");
     setSeed(Math.random());
     setSourceLanguage("");
     setTargetLanguage("");
-    setFilteredServices(services);
-    setSearchedServices(services);
+    setSearchTerm("");
+    if (services) {
+      setSearchedServices(services);
+    }
   };
 
   const searchToggler = (event: any) => {
-    setSearchedServices(
-      filteredservices.filter((service) =>
-        service.name.toLowerCase().includes(event.target.value.toLowerCase())
-      )
-    );
+    setSearchTerm(event.target.value);
   };
 
-  const filterToggler = () => {
-    if (task !== "" || sourceLang !== "" || targetLang !== "")
-      setFilteredServices(
-        services.filter((service) => {
-          let found = false;
-          if (targetLang === "" && sourceLang !== "") {
-            service.languages.every(
-              (language: {
-                sourceLanguage: string;
-                targetLanguage: string;
-              }) => {
-                if (language.sourceLanguage === sourceLang) {
-                  found = true;
-                  return false;
-                }
-                return true;
-              }
-            );
-          } else if (sourceLang === "" && targetLang !== "") {
-            service.languages.every(
-              (language: {
-                sourceLanguage: string;
-                targetLanguage: string;
-              }) => {
-                if (language.targetLanguage === targetLang) {
-                  found = true;
-                  return false;
-                }
-                return true;
-              }
-            );
-          } else if (targetLang !== "" && sourceLang !== "") {
-            service.languages.every(
-              (language: {
-                sourceLanguage: string;
-                targetLanguage: string;
-              }) => {
-                if (
-                  language.targetLanguage === targetLang &&
-                  language.sourceLanguage === sourceLang
-                ) {
-                  found = true;
-                  return false;
-                }
-                return true;
-              }
-            );
-          } else if (targetLang === "" && sourceLang === "" && task !== "") {
-            return service.task.type.includes(task);
-          }
-          return found && service.task.type.includes(task);
-        })
-      );
-  };
   const sourceLangToggler = (event: any) => {
     setSourceLanguage(event.target.value);
   };
@@ -110,30 +134,41 @@ export default function Services() {
   };
 
   const taskToggler = (event: any) => {
-    setTask(event.target.value);
+    const value = event.target.value;
+    setTask(value);
+    // Clear target language if task is not translation
+    if (value !== "translation" && targetLang !== "") {
+      setTargetLanguage("");
+    }
   };
 
   useEffect(() => {
     if (services) {
-      setFilteredServices(services);
       setSearchedServices(services);
       togglehide(false);
     }
   }, [services]);
 
   useEffect(() => {
-    filterToggler();
-    if (task == "translation") {
+    if (task === "translation") {
       setHideTarget(false);
     } else {
       setHideTarget(true);
-      setTargetLanguage("");
     }
-  }, [sourceLang, targetLang, task]);
+  }, [task]);
 
   useEffect(() => {
-    setSearchedServices(filteredservices);
-  }, [filteredservices]);
+    if (services) {
+      const filtered = applyFiltersAndSearch(
+        services,
+        searchTerm,
+        task,
+        sourceLang,
+        task === "translation" ? targetLang : ""
+      );
+      setSearchedServices(filtered);
+    }
+  }, [sourceLang, targetLang, task, searchTerm, services]);
 
   return (
     <>
@@ -156,53 +191,176 @@ export default function Services() {
                 <Input
                   borderRadius={0}
                   color="gray.600"
+                  value={searchTerm}
                   onChange={searchToggler}
                   placeholder="Search for Services"
+                  pr={searchTerm ? "2.5rem" : "0.5rem"}
                 />
+                {searchTerm && (
+                  <InputRightElement width="2.5rem">
+                    <IconButton
+                      aria-label="Clear search"
+                      icon={<CloseIcon />}
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => {
+                        setSearchTerm("");
+                        if (services) {
+                          const filtered = applyFiltersAndSearch(
+                            services,
+                            "",
+                            task,
+                            sourceLang,
+                            task === "translation" ? targetLang : ""
+                          );
+                          setSearchedServices(filtered);
+                        }
+                      }}
+                    />
+                  </InputRightElement>
+                )}
               </InputGroup>
-              <Select
-                value={task}
-                width={smallscreen ? "90vw" : "20rem"}
-                background={"white"}
-                borderRadius={0}
-                color="gray.600"
-                onChange={taskToggler}
-              >
-                <option hidden defaultChecked>
-                  Select Task Type
-                </option>
-                {taskOptions}
-              </Select>
-              <InputGroup
+              <Box position="relative" width={smallscreen ? "90vw" : "20rem"} gap={2}>
+                <Select
+                  value={task}
+                  width="100%"
+                  background={"white"}
+                  borderRadius={0}
+                  color="gray.600"
+                  onChange={taskToggler}
+                  pr={task ? "3.5rem" : "2.5rem"}
+                >
+                  <option hidden defaultChecked>
+                    Select Task Type
+                  </option>
+                  {taskOptions}
+                </Select>
+                {task && (
+                  <IconButton
+                    aria-label="Clear task filter"
+                    icon={<CloseIcon />}
+                    size="xs"
+                    variant="ghost"
+                    position="absolute"
+                    right="4rem"
+                    top="50%"
+                    transform="translateY(-50%)"
+                    zIndex={10}
+                    height="1.5rem"
+                    minW="1.5rem"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTask("");
+                      if (services) {
+                        const filtered = applyFiltersAndSearch(
+                          services,
+                          searchTerm,
+                          "",
+                          sourceLang,
+                          ""
+                        );
+                        setSearchedServices(filtered);
+                      }
+                    }}
+                  />
+                )}
+              </Box>
+              <Stack
+                direction="row"
                 width={smallscreen ? "90vw" : "30rem"}
-                background={"white"}
+                spacing={0}
               >
-                <Select
-                  value={sourceLang}
-                  background={"white"}
-                  borderRadius={0}
-                  color="gray.600"
-                  onChange={sourceLangToggler}
-                >
-                  <option hidden defaultChecked>
-                    Source Language
-                  </option>
-                  {languageOptions}
-                </Select>
-                <Select
-                  value={targetLang}
-                  background={"white"}
-                  borderRadius={0}
-                  color="gray.600"
-                  onChange={targetLangToggler}
-                  display={hideTarget ? "none" : "block"}
-                >
-                  <option hidden defaultChecked>
-                    Target Language
-                  </option>
-                  {languageOptions}
-                </Select>
-              </InputGroup>
+                <Box position="relative" flex="1">
+                  <Select
+                    value={sourceLang}
+                    background={"white"}
+                    borderRadius={0}
+                    color="gray.600"
+                    onChange={sourceLangToggler}
+                    pr={sourceLang ? "3.5rem" : "2.5rem"}
+                  >
+                    <option hidden defaultChecked>
+                      Source Language
+                    </option>
+                    {languageOptions}
+                  </Select>
+                  {sourceLang && (
+                    <IconButton
+                      aria-label="Clear source language filter"
+                      icon={<CloseIcon />}
+                      size="xs"
+                      variant="ghost"
+                      position="absolute"
+                      right="4rem"
+                      top="50%"
+                      transform="translateY(-50%)"
+                      zIndex={10}
+                      height="1.5rem"
+                      minW="1.5rem"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSourceLanguage("");
+                        if (services) {
+                          const filtered = applyFiltersAndSearch(
+                            services,
+                            searchTerm,
+                            task,
+                            "",
+                            task === "translation" ? targetLang : ""
+                          );
+                          setSearchedServices(filtered);
+                        }
+                      }}
+                    />
+                  )}
+                </Box>
+                {!hideTarget && (
+                  <Box position="relative" flex="1">
+                    <Select
+                      value={targetLang}
+                      background={"white"}
+                      borderRadius={0}
+                      color="gray.600"
+                      onChange={targetLangToggler}
+                      pr={targetLang ? "3.5rem" : "2.5rem"}
+                    >
+                      <option hidden defaultChecked>
+                        Target Language
+                      </option>
+                      {languageOptions}
+                    </Select>
+                    {targetLang && (
+                      <IconButton
+                        aria-label="Clear target language filter"
+                        icon={<CloseIcon />}
+                        size="xs"
+                        variant="ghost"
+                        position="absolute"
+                        right="2.5rem"
+                        top="50%"
+                        transform="translateY(-50%)"
+                        zIndex={10}
+                        height="1.5rem"
+                        minW="1.5rem"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTargetLanguage("");
+                          if (services) {
+                            const filtered = applyFiltersAndSearch(
+                              services,
+                              searchTerm,
+                              task,
+                              sourceLang,
+                              ""
+                            );
+                            setSearchedServices(filtered);
+                          }
+                        }}
+                      />
+                    )}
+                  </Box>
+                )}
+              </Stack>
               <Button
                 width={smallscreen ? "90vw" : "8rem"}
                 onClick={clearFilters}
