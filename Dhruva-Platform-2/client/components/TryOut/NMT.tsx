@@ -125,6 +125,7 @@ const NMTTry: React.FC<Props> = (props) => {
 
   const renderTransliterateComponent = () => {
     const currentLanguage: LanguageConfig = JSON.parse(language);
+  
     return (
       <IndicTransliterate
         renderComponent={(props) => (
@@ -235,7 +236,9 @@ const NMTTry: React.FC<Props> = (props) => {
             placeholder="View Translation Here..."
           />
           <Button
+          isDisabled={!tltText?.trim()}
             onClick={() => {
+              if(tltText.length!=0){
               if (tltText.length <= 512) {
                 getTranslation(tltText);
               } else {
@@ -247,6 +250,7 @@ const NMTTry: React.FC<Props> = (props) => {
                 });
               }
             }}
+          }
           >
             Translate
           </Button>

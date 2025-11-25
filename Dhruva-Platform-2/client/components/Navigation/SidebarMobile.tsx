@@ -7,8 +7,8 @@ import {
   useColorModeValue,
   HStack,
   Spacer,
+  Image,
 } from "@chakra-ui/react";
-import Image from "next/image";
 import { IoConstructOutline, IoGridOutline } from "react-icons/io5";
 import { MdOutlineAdminPanelSettings } from "react-icons/md";
 import React, { useState, useEffect } from "react";
@@ -62,12 +62,16 @@ const SidebarMobile: React.FC = () => {
       <Box borderRadius="xl">
         <Box h="4rem" justifyContent="flex-start">
           <HStack justifyContent="center" alignItems="center">
-            <Text fontSize={"x-large"} fontWeight={"bold"}>
-              Dhruva
-            </Text>
+          <Image
+                src="/AI4Inclusion_Logo.svg"
+                alt="AI4Inclusion Logo"
+                boxSize={20}
+                objectFit="contain"
+              />
           </HStack>
+           <Divider />
         </Box>
-        <Divider />
+       
         <SimpleGrid
           spacingY={4}
           spacingX={1}

@@ -14,9 +14,7 @@ interface ModelView {
   name: string;
   description: string;
   refUrl: string;
-  task: {
-    type: string;
-  };
+  task: string;
   languages: LanguageConfig[];
   benchmarks: Benchmark[];
 }

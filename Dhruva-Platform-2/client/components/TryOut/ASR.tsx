@@ -1,5 +1,9 @@
 import { CloseIcon } from "@chakra-ui/icons";
 import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
   Box,
   Button,
   Grid,
@@ -80,7 +84,58 @@ const ASRTry: React.FC<Props> = (props) => {
   const [pipelineOutput, setPipelineOutput] = useState<
     PipelineOutput | undefined
   >();
+  const [error, setError] = useState<string | null>(null);
   const getASROutput = (asrInput: string) => {
+    // Validate input
+    if (!asrInput || asrInput.trim() === "") {
+      const errorMsg = "Audio input is required";
+      setError(errorMsg);
+      toast({
+        title: "Validation Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setFetching(false);
+      setFetched(false);
+      return;
+    }
+
+    if (!props.serviceId) {
+      const errorMsg = "Service ID is missing";
+      setError(errorMsg);
+      toast({
+        title: "Configuration Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setFetching(false);
+      setFetched(false);
+      return;
+    }
+
+    if (!language) {
+      const errorMsg = "Please select a language";
+      setError(errorMsg);
+      toast({
+        title: "Validation Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setFetching(false);
+      setFetched(false);
+      return;
+    }
+
+    setError(null);
+    setFetched(false);
+    setFetching(true);
+
     apiInstance
       .post(
         dhruvaAPI.asrInference + `?serviceId=${props.serviceId}`,
@@ -112,6 +167,15 @@ const ASRTry: React.FC<Props> = (props) => {
         }
       )
       .then((response) => {
+        // Validate response structure
+        if (!response.data || !response.data.output || !Array.isArray(response.data.output) || response.data.output.length === 0) {
+          throw new Error("Invalid response format: missing output data");
+        }
+
+        if (!response.data.output[0] || !response.data.output[0].source) {
+          throw new Error("Invalid response format: missing source text");
+        }
+
         setPipelineInput({
           pipelineTasks: [
             {
@@ -146,6 +210,47 @@ const ASRTry: React.FC<Props> = (props) => {
         setAudioText(output);
         setResponseWordCount(getWordCount(output));
         setRequestTime(response.headers["request-duration"]);
+        setFetching(false);
+        setFetched(true);
+        setError(null);
+      })
+      .catch((error) => {
+        console.error("ASR inference error:", error);
+        let errorMessage = "Failed to process audio";
+
+        if (error.response) {
+          // Server responded with error status
+          const status = error.response.status;
+          const errorData = error.response.data;
+
+          if (errorData?.detail?.message) {
+            errorMessage = errorData.detail.message;
+          } else if (errorData?.detail?.kind) {
+            errorMessage = `${errorData.detail.kind}: ${errorData.detail.message || "Request failed"}`;
+          } else if (errorData?.message) {
+            errorMessage = errorData.message;
+          } else {
+            errorMessage = `Server error (${status}): ${error.response.statusText || "Unknown error"}`;
+          }
+        } else if (error.request) {
+          // Request was made but no response received
+          errorMessage = "No response from server. Please check your connection.";
+        } else {
+          // Error setting up the request
+          errorMessage = error.message || "Failed to setup request";
+        }
+
+        setError(errorMessage);
+        toast({
+          title: "ASR Error",
+          description: errorMessage,
+          status: "error",
+          duration: 8000,
+          isClosable: true,
+        });
+        setFetching(false);
+        setFetched(false);
+        setAudioText(""); // Clear audio text on error
       });
   };
 
@@ -156,8 +261,32 @@ const ASRTry: React.FC<Props> = (props) => {
       var result = reader.result as string;
       var base64Data = result.split(",")[1];
       var audio = new Audio("data:audio/wav;base64," + base64Data);
+      audio.addEventListener("error", () => {
+        console.error("Error loading recorded audio");
+        toast({
+          title: "Audio Error",
+          description: "Failed to load recorded audio. Please try recording again.",
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+      });
       audio.play();
       getASROutput(base64Data);
+      // Note: fetching/fetched states are now managed inside getASROutput
+    };
+    reader.onerror = () => {
+      const errorMsg = "Failed to read audio file";
+      setError(errorMsg);
+      toast({
+        title: "File Read Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setFetching(false);
+      setFetched(false);
     };
   };
 
@@ -222,14 +351,34 @@ const ASRTry: React.FC<Props> = (props) => {
   const stopRecording = () => {
     console.log("Recording Stopped");
     setRecording(false);
-    audioStream.getAudioTracks()[0].stop();
-    recorder.exportWAV(handleRecording, "audio/wav", 16000);
-    recorder.stop();
+    try {
+      if (audioStream && audioStream.getAudioTracks().length > 0) {
+        audioStream.getAudioTracks()[0].stop();
+      }
+      if (recorder) {
+        recorder.exportWAV(handleRecording, "audio/wav", 16000);
+        recorder.stop();
+      }
+    } catch (error) {
+      console.error("Error stopping recording:", error);
+      const errorMsg = "Failed to process recorded audio";
+      setError(errorMsg);
+      toast({
+        title: "Recording Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setFetching(false);
+      setFetched(false);
+    }
     setPlaceHolder("Start Recording for ASR Inference...");
-    setFetching(false);
-    setFetched(true);
+    // Note: fetching/fetched states are now managed inside getASROutput
     // Clear the timer interval
-    clearInterval(timerInterval);
+    if (timerInterval) {
+      clearInterval(timerInterval);
+    }
   };
 
   useEffect(() => {
@@ -327,6 +476,13 @@ const ASRTry: React.FC<Props> = (props) => {
           </Stack>
         </GridItem>
         <GridItem>
+          {error && (
+            <Alert status="error" borderRadius="md" mb={4}>
+              <AlertIcon />
+              <AlertTitle mr={2}>Error:</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           {fetching ? <Progress size="xs" isIndeterminate /> : <></>}
         </GridItem>
 
@@ -405,23 +561,34 @@ const ASRTry: React.FC<Props> = (props) => {
                   variant={"unstyled"}
                   onChangeCapture={(e: React.ChangeEvent<HTMLInputElement>) => {
                     const selectedAudioFile = e.target["files"][0];
+                    if (!selectedAudioFile) {
+                      return;
+                    }
                     const selectedAudioReader = new FileReader();
                     selectedAudioReader.readAsDataURL(selectedAudioFile);
                     selectedAudioReader.onloadend = () => {
-                      setFetched(false);
-                      setFetching(true);
                       var base64Data: string =
                         selectedAudioReader.result as string;
 
                       var audio = new Audio(
                         "data:audio/wav;base64," + base64Data.split(",")[1]
                       );
+                      audio.addEventListener("error", () => {
+                        console.error("Error loading audio file");
+                        toast({
+                          title: "Audio Error",
+                          description: "Failed to load audio file. The file may be corrupted or in an unsupported format.",
+                          status: "error",
+                          duration: 5000,
+                          isClosable: true,
+                        });
+                      });
                       audio.play();
 
                       getASROutput(base64Data.split(",")[1]);
-                      setFetching(false);
-                      setFetched(true);
+                      // Note: fetching/fetched states are now managed inside getASROutput
                     };
+                    e.target.value = null; // Reset file input
                   }}
                   type={"file"}
                 />

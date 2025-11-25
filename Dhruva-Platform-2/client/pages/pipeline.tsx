@@ -1,4 +1,8 @@
 import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
   Button,
   Grid,
   GridItem,
@@ -18,6 +22,7 @@ import {
   Tabs,
   Text,
   Textarea,
+  useToast,
 } from "@chakra-ui/react";
 import { useQuery } from "@tanstack/react-query";
 import Head from "next/head";
@@ -73,6 +78,8 @@ function PipelineInterface() {
     PipelineInput | undefined
   >();
   const [pipelineOutput, setPipelineOutput] = useState<PipelineOutput>();
+  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const asrFilter = (service) => {
     return service["task"]["type"] === "asr";
@@ -200,8 +207,72 @@ function PipelineInterface() {
   };
 
   const getPipelineOutput = (asrInput) => {
+    // Validate service IDs before making the request
+    if (!currentASRService) {
+      const errorMsg = "Please select an ASR service";
+      setError(errorMsg);
+      toast({
+        title: "Validation Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setFetching(false);
+      setFetched(false);
+      return;
+    }
+
+    if (!currentNMTService) {
+      const errorMsg = "Please select a Translation (NMT) service";
+      setError(errorMsg);
+      toast({
+        title: "Validation Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setFetching(false);
+      setFetched(false);
+      return;
+    }
+
+    if (!currentTTSService) {
+      const errorMsg = "Please select a TTS service";
+      setError(errorMsg);
+      toast({
+        title: "Validation Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setFetching(false);
+      setFetched(false);
+      return;
+    }
+
+    // Validate audio input
+    if (!asrInput || asrInput.trim() === "") {
+      const errorMsg = "Audio input is required";
+      setError(errorMsg);
+      toast({
+        title: "Validation Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setFetching(false);
+      setFetched(false);
+      return;
+    }
+
+    setError(null);
     setFetched(false);
     setFetching(true);
+
     apiInstance
       .post(
         dhruvaAPI.pipelineInference,
@@ -315,6 +386,44 @@ function PipelineInterface() {
         setRequestWordCount(getWordCount(nmtOutput["source"]));
         setResponseWordCount(getWordCount(nmtOutput["target"]));
         setRequestTime(response.headers["request-duration"]);
+        setError(null);
+      })
+      .catch((error) => {
+        console.error("Pipeline inference error:", error);
+        let errorMessage = "Failed to process pipeline request";
+        
+        if (error.response) {
+          // Server responded with error status
+          const status = error.response.status;
+          const errorData = error.response.data;
+          
+          if (errorData?.detail?.message) {
+            errorMessage = errorData.detail.message;
+          } else if (errorData?.detail?.kind) {
+            errorMessage = `${errorData.detail.kind}: ${errorData.detail.message || "Request failed"}`;
+          } else if (errorData?.message) {
+            errorMessage = errorData.message;
+          } else {
+            errorMessage = `Server error (${status}): ${error.response.statusText || "Unknown error"}`;
+          }
+        } else if (error.request) {
+          // Request was made but no response received
+          errorMessage = "No response from server. Please check your connection.";
+        } else {
+          // Error setting up the request
+          errorMessage = error.message || "Failed to setup request";
+        }
+
+        setError(errorMessage);
+        toast({
+          title: "Pipeline Error",
+          description: errorMessage,
+          status: "error",
+          duration: 8000,
+          isClosable: true,
+        });
+        setFetching(false);
+        setFetched(false);
       });
   };
 
@@ -465,11 +574,12 @@ function PipelineInterface() {
                   style={{ display: "none" }}
                   onChangeCapture={(e: React.ChangeEvent<HTMLInputElement>) => {
                     const selectedAudioFile = e.target["files"][0];
+                    if (!selectedAudioFile) {
+                      return;
+                    }
                     const selectedAudioReader = new FileReader();
                     selectedAudioReader.readAsDataURL(selectedAudioFile);
                     selectedAudioReader.onloadend = () => {
-                      setFetched(false);
-                      setFetching(true);
                       var base64Data: string =
                         selectedAudioReader.result as string;
 
@@ -478,14 +588,20 @@ function PipelineInterface() {
                       );
                       // audio.play();
                       getPipelineOutput(base64Data.split(",")[1]);
-                      setFetching(false);
-                      setFetched(true);
+                      // Note: fetching/fetched states are now managed inside getPipelineOutput
                     };
                     e.target.value = null;
                   }}
                 />
               </Button>
             </Stack>
+            {error && (
+              <Alert status="error" borderRadius="md">
+                <AlertIcon />
+                <AlertTitle mr={2}>Error:</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
             {fetching ? <Progress size="xs" isIndeterminate /> : <></>}
             {fetched ? (
               <SimpleGrid

@@ -1,4 +1,8 @@
 import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
   Button,
   Grid,
   GridItem,
@@ -12,6 +16,7 @@ import {
   StatNumber,
   Text,
   Textarea,
+  useToast,
 } from "@chakra-ui/react";
 import React, { useEffect, useState } from "react";
 import { apiInstance, dhruvaAPI } from "../../api/apiConfig";
@@ -53,25 +58,82 @@ const XLITTry: React.FC<Props> = (props) => {
   const [pipelineOutput, setPipelineOutput] = useState<
     PipelineOutput | undefined
   >();
+  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const getTransliteration = (source: string) => {
+    // Validate input
+    if (!source || source.trim() === "") {
+      const errorMsg = "Text input is required";
+      setError(errorMsg);
+      toast({
+        title: "Validation Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setFetching(false);
+      setFetched(false);
+      return;
+    }
+
+    if (!props.serviceId) {
+      const errorMsg = "Service ID is missing";
+      setError(errorMsg);
+      toast({
+        title: "Configuration Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setFetching(false);
+      setFetched(false);
+      return;
+    }
+
+    // Validate language configuration
+    let languageConfig;
+    try {
+      languageConfig = JSON.parse(language);
+      if (!languageConfig.sourceLanguage || !languageConfig.targetLanguage) {
+        throw new Error("Invalid language configuration");
+      }
+    } catch (e) {
+      const errorMsg = "Invalid language configuration";
+      setError(errorMsg);
+      toast({
+        title: "Configuration Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setFetching(false);
+      setFetched(false);
+      return;
+    }
+
+    setError(null);
     setFetched(false);
     setFetching(true);
+
     apiInstance
       .post(
         dhruvaAPI.xlitInference + `?serviceId=${props.serviceId}`,
         {
           input: [
             {
-              source: tltText,
+              source: source,
             },
           ],
           config: {
             serviceId: props.serviceId,
             language: {
-              sourceLanguage: JSON.parse(language)["sourceLanguage"],
+              sourceLanguage: languageConfig.sourceLanguage,
               sourceScriptCode: "",
-              targetLanguage: JSON.parse(language)["targetLanguage"],
+              targetLanguage: languageConfig.targetLanguage,
               targetScriptCode: "",
             },
             isSentence: true,
@@ -90,7 +152,19 @@ const XLITTry: React.FC<Props> = (props) => {
         }
       )
       .then((response) => {
-        console.log(response);
+        // Validate response structure
+        if (!response.data || !response.data["output"] || !Array.isArray(response.data["output"]) || response.data["output"].length === 0) {
+          throw new Error("Invalid response format: missing output data");
+        }
+
+        if (!response.data["output"][0] || !response.data["output"][0]["target"]) {
+          throw new Error("Invalid response format: missing target transliteration");
+        }
+
+        if (!Array.isArray(response.data["output"][0]["target"]) || response.data["output"][0]["target"].length === 0) {
+          throw new Error("Invalid response format: target transliteration is empty");
+        }
+
         var output = response.data["output"][0]["target"][0];
         setPipelineInput({
           pipelineTasks: [
@@ -98,9 +172,9 @@ const XLITTry: React.FC<Props> = (props) => {
               config: {
                 serviceId: props.serviceId,
                 language: {
-                  sourceLanguage: JSON.parse(language)["sourceLanguage"],
+                  sourceLanguage: languageConfig.sourceLanguage,
                   sourceScriptCode: "",
-                  targetLanguage: JSON.parse(language)["targetLanguage"],
+                  targetLanguage: languageConfig.targetLanguage,
                   targetScriptCode: "",
                 },
                 isSentence: true,
@@ -124,9 +198,70 @@ const XLITTry: React.FC<Props> = (props) => {
         settransliteratedText(output);
         setFetching(false);
         setFetched(true);
-        setRequestWordCount(getWordCount(tltText));
+        setRequestWordCount(getWordCount(source));
         setResponseWordCount(getWordCount(output));
         setRequestTime(response.headers["request-duration"]);
+        setError(null);
+      })
+      .catch((error) => {
+        console.error("Transliteration inference error:", error);
+        let errorMessage = "Failed to process transliteration request";
+
+        if (error.response) {
+          // Server responded with error status
+          const status = error.response.status;
+          const errorData = error.response.data;
+
+          // Handle 422 (Unprocessable Entity) specifically - usually validation errors
+          if (status === 422) {
+            if (errorData?.detail) {
+              // Pydantic validation errors
+              if (Array.isArray(errorData.detail)) {
+                const validationErrors = errorData.detail.map((err: any) => {
+                  const field = err.loc ? err.loc.join(".") : "field";
+                  return `${field}: ${err.msg || "Invalid value"}`;
+                }).join(", ");
+                errorMessage = `Validation error: ${validationErrors}`;
+              } else if (errorData.detail.message) {
+                errorMessage = errorData.detail.message;
+              } else if (typeof errorData.detail === "string") {
+                errorMessage = errorData.detail;
+              } else {
+                errorMessage = "Invalid request format. Please check your input.";
+              }
+            } else if (errorData?.message) {
+              errorMessage = errorData.message;
+            } else {
+              errorMessage = "Invalid request format. Please check your input and language configuration.";
+            }
+          } else if (errorData?.detail?.message) {
+            errorMessage = errorData.detail.message;
+          } else if (errorData?.detail?.kind) {
+            errorMessage = `${errorData.detail.kind}: ${errorData.detail.message || "Request failed"}`;
+          } else if (errorData?.message) {
+            errorMessage = errorData.message;
+          } else {
+            errorMessage = `Server error (${status}): ${error.response.statusText || "Unknown error"}`;
+          }
+        } else if (error.request) {
+          // Request was made but no response received
+          errorMessage = "No response from server. Please check your connection.";
+        } else {
+          // Error setting up the request
+          errorMessage = error.message || "Failed to setup request";
+        }
+
+        setError(errorMessage);
+        toast({
+          title: "Transliteration Error",
+          description: errorMessage,
+          status: "error",
+          duration: 8000,
+          isClosable: true,
+        });
+        setFetching(false);
+        setFetched(false);
+        settransliteratedText(""); // Clear transliterated text on error
       });
   };
 
@@ -169,6 +304,13 @@ const XLITTry: React.FC<Props> = (props) => {
         </Stack>
       </GridItem>
       <GridItem>
+        {error && (
+          <Alert status="error" borderRadius="md" mb={4}>
+            <AlertIcon />
+            <AlertTitle mr={2}>Error:</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         {fetching ? <Progress size="xs" isIndeterminate /> : <></>}
       </GridItem>
       {fetched ? (
@@ -224,9 +366,12 @@ const XLITTry: React.FC<Props> = (props) => {
             placeholder="View Transliteration Here..."
           />
           <Button
+            isDisabled={!tltText?.trim()}
             onClick={() => {
+              if(tltText.length!=0){
               getTransliteration(tltText);
             }}
+          }
           >
             Transliterate
           </Button>

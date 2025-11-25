@@ -65,6 +65,19 @@ export default function ViewModel({ ...props }) {
   const [benchmarkDataset, setBenchmarkDataset] = useState<string>("");
   const [benchmarkValues, setBenchmarkValues] = useState<Benchmark[]>([]);
   const [tabIndex, setTabIndex] = useState<number>(0);
+    const options = [
+  { value: "translation", label: "Translation" },
+  { value: "tts", label: "TTS" },
+  { value: "asr", label: "ASR" },
+  { value: "ner", label: "NER" },
+  // { value: "sts", label: "STS" },
+  { value: "transliteration", label: "XLIT" }
+];
+
+const getLabel = (value) => {
+  const option = options.find((opt) => opt.value === value);
+  return option ? option.label : null; 
+};
 
   useEffect(() => {
     if (modelInfo !== undefined) {
@@ -92,12 +105,12 @@ export default function ViewModel({ ...props }) {
   }, [benchmarks]);
 
   useEffect(() => {
-    const currentBenchmarks = benchmarks.filter(
+    const currentBenchmarks = benchmarks?.filter(
       (benchmark) => benchmark["name"] === benchmarkDataset
     );
 
     const currentMetricBenchmarks = [];
-    currentBenchmarks.forEach((benchmark) => {
+    currentBenchmarks?.forEach((benchmark) => {
       benchmark["score"].forEach((score) => {
         if (score["metricName"] === benchmarkMetric) {
           const benchmarkObj = {};
@@ -139,7 +152,7 @@ export default function ViewModel({ ...props }) {
             gap={10}
           >
             <GridItem p="1rem" bg="white">
-            <Button variant={"link"} mb="1rem" onClick={()=>router.push("/services")}><HiArrowLeft/> &nbsp;Models</Button>
+            <Button variant={"link"} mb="1rem" onClick={()=>router.push("/models")}><HiArrowLeft/> &nbsp;Models</Button>
               <Stack spacing={10} direction={"row"}>
                 <Heading>{modelInfo["name"]}</Heading>
               </Stack>
@@ -162,7 +175,7 @@ export default function ViewModel({ ...props }) {
                           Model Version : {modelInfo["version"]}
                         </Text>
                         <Text className="dview-service-info-item">
-                          Model Type : {modelInfo["task"]["type"]}
+                          Model Type : {getLabel(modelInfo["task"])}
                         </Text>
                         <Text className="dview-service-info-item">
                           Submitted On :{" "}
@@ -272,8 +285,9 @@ export default function ViewModel({ ...props }) {
             bg="light.100"
           >
             <GridItem p="1rem" bg="white">
+                <Button variant={"link"} mb="1rem" onClick={()=>router.push("/models")}><HiArrowLeft/> &nbsp;Models</Button>
+           
               <Stack spacing={10} direction={"row"}>
-              <Button variant={"ghost"} fontSize={"2xl"} onClick={()=>router.push("/services")}><HiArrowLeft/></Button>
                 <Heading>{modelInfo["name"]}</Heading>
               </Stack>
               <Tabs isFitted>
@@ -291,7 +305,7 @@ export default function ViewModel({ ...props }) {
                           Model Version : {modelInfo["version"]}
                         </Text>
                         <Text className="dview-service-info-item">
-                          Model Type : {modelInfo["task"]["type"]}
+                          Model Type : {getLabel(modelInfo["task"])}
                         </Text>
                         <Text className="dview-service-info-item">
                           Submitted On :{" "}

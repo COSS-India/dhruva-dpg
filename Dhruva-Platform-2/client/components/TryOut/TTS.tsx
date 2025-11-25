@@ -1,5 +1,9 @@
 import { IndicTransliterate } from "@ai4bharat/indic-transliterate";
 import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
   Box,
   Button,
   Grid,
@@ -61,9 +65,39 @@ const TTSTry: React.FC<Props> = (props) => {
   const [pipelineOuput, setPipelineOutput] = useState<
     PipelineOutput | undefined
   >();
+  const [error, setError] = useState<string | null>(null);
   const getTTSAudio = (source: string) => {
+    // Validate input
+    if (!source || source.trim() === "") {
+      const errorMsg = "Text input is required";
+      setError(errorMsg);
+      toast({
+        title: "Validation Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    if (!props.serviceId) {
+      const errorMsg = "Service ID is missing";
+      setError(errorMsg);
+      toast({
+        title: "Configuration Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    setError(null);
     setFetched(false);
     setFetching(true);
+
     apiInstance
       .post(
         dhruvaAPI.ttsInference + `?serviceId=${props.serviceId}`,
@@ -95,6 +129,15 @@ const TTSTry: React.FC<Props> = (props) => {
         }
       )
       .then((response) => {
+        // Validate response structure
+        if (!response.data || !response.data["audio"] || !Array.isArray(response.data["audio"]) || response.data["audio"].length === 0) {
+          throw new Error("Invalid response format: missing audio data");
+        }
+
+        if (!response.data["audio"][0]["audioContent"]) {
+          throw new Error("Invalid response format: missing audioContent");
+        }
+
         setPipelineInput({
           pipelineTasks: [
             {
@@ -131,12 +174,60 @@ const TTSTry: React.FC<Props> = (props) => {
         audioObject.addEventListener("loadedmetadata", () => {
           setAudioDuration(audioObject.duration);
         });
+        audioObject.addEventListener("error", () => {
+          console.error("Error loading audio");
+          toast({
+            title: "Audio Error",
+            description: "Failed to load audio. The audio data may be corrupted.",
+            status: "error",
+            duration: 5000,
+            isClosable: true,
+          });
+        });
         setAudio(audio);
         setFetching(false);
         setFetched(true);
         setRequestWordCount(getWordCount(tltText));
-
         setRequestTime(response.headers["request-duration"]);
+        setError(null);
+      })
+      .catch((error) => {
+        console.error("TTS inference error:", error);
+        let errorMessage = "Failed to generate audio";
+
+        if (error.response) {
+          // Server responded with error status
+          const status = error.response.status;
+          const errorData = error.response.data;
+
+          if (errorData?.detail?.message) {
+            errorMessage = errorData.detail.message;
+          } else if (errorData?.detail?.kind) {
+            errorMessage = `${errorData.detail.kind}: ${errorData.detail.message || "Request failed"}`;
+          } else if (errorData?.message) {
+            errorMessage = errorData.message;
+          } else {
+            errorMessage = `Server error (${status}): ${error.response.statusText || "Unknown error"}`;
+          }
+        } else if (error.request) {
+          // Request was made but no response received
+          errorMessage = "No response from server. Please check your connection.";
+        } else {
+          // Error setting up the request
+          errorMessage = error.message || "Failed to setup request";
+        }
+
+        setError(errorMessage);
+        toast({
+          title: "TTS Error",
+          description: errorMessage,
+          status: "error",
+          duration: 8000,
+          isClosable: true,
+        });
+        setFetching(false);
+        setFetched(false);
+        setAudio(""); // Clear audio on error
       });
   };
 
@@ -233,10 +324,10 @@ const TTSTry: React.FC<Props> = (props) => {
                   wav
                 </option>
                 <option value={"mp3"}>mp3</option>
-                <option value={"flac"}>flac</option>
+                {/* <option value={"flac"}>flac</option>
                 <option value={"flv"}>flv</option>
                 <option value={"pcm"}>pcm</option>
-                <option value={"ogg"}>ogg</option>
+                <option value={"ogg"}>ogg</option> */}
               </Select>
             </Stack>
             <Stack direction={"row"} width={smallscreen ? "100%" : "50%"}>
@@ -257,6 +348,13 @@ const TTSTry: React.FC<Props> = (props) => {
           </Stack>
         </GridItem>
         <GridItem>
+          {error && (
+            <Alert status="error" borderRadius="md" mb={4}>
+              <AlertIcon />
+              <AlertTitle mr={2}>Error:</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           {fetching ? <Progress size="xs" isIndeterminate /> : <></>}
         </GridItem>
         {fetched ? (
@@ -296,7 +394,9 @@ const TTSTry: React.FC<Props> = (props) => {
             {renderTransliterateComponent()}
             <Stack direction={"column"} gap={5}>
               <Button
-                onClick={() => {
+               isDisabled={!tltText?.trim()}
+            onClick={() => {
+              if(tltText.length!=0){
                   if (tltText.length <= 512) {
                     getTTSAudio(tltText);
                   } else {
@@ -308,8 +408,9 @@ const TTSTry: React.FC<Props> = (props) => {
                     });
                   }
                 }}
+              }
               >
-                <FaRegFileAudio />
+                 <FaRegFileAudio /> &nbsp; Generate Audio
               </Button>
               <audio style={{ width: "auto" }} src={audio} controls />
 

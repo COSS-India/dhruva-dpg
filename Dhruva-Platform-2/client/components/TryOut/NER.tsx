@@ -1,4 +1,8 @@
 import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
   Stack,
   Text,
   Select,
@@ -13,6 +17,7 @@ import {
   StatHelpText,
   SimpleGrid,
   Box,
+  useToast,
 } from "@chakra-ui/react";
 import { useState, useEffect } from "react";
 import { IndicTransliterate } from "@ai4bharat/indic-transliterate";
@@ -46,9 +51,59 @@ const NERTry: React.FC<Props> = (props) => {
   const [pipelineOutput, setPipelineOutput] = useState<
     PipelineOutput | undefined
   >();
+  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const getNEROutput = (source: string) => {
+    // Validate input
+    if (!source || source.trim() === "") {
+      const errorMsg = "Text input is required";
+      setError(errorMsg);
+      toast({
+        title: "Validation Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setFetching(false);
+      setFetched(false);
+      return;
+    }
+
+    if (!props.serviceId) {
+      const errorMsg = "Service ID is missing";
+      setError(errorMsg);
+      toast({
+        title: "Configuration Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setFetching(false);
+      setFetched(false);
+      return;
+    }
+
+    if (!language) {
+      const errorMsg = "Please select a language";
+      setError(errorMsg);
+      toast({
+        title: "Validation Error",
+        description: errorMsg,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setFetching(false);
+      setFetched(false);
+      return;
+    }
+
+    setError(null);
     setFetched(false);
     setFetching(true);
+
     apiInstance
       .post(
         dhruvaAPI.nerInference + `?serviceId=${props.serviceId}`,
@@ -77,19 +132,75 @@ const NERTry: React.FC<Props> = (props) => {
         }
       )
       .then((response) => {
+        // Validate response structure
+        if (!response.data || !response.data["output"] || !Array.isArray(response.data["output"]) || response.data["output"].length === 0) {
+          throw new Error("Invalid response format: missing output data");
+        }
+
+        if (!response.data["output"][0] || !response.data["output"][0]["nerPrediction"]) {
+          throw new Error("Invalid response format: missing NER prediction data");
+        }
+
         const tokens = response.data["output"][0]["nerPrediction"];
-        const tokenDictionary = {};
+        
+        // Validate tokens structure
+        if (!Array.isArray(tokens)) {
+          throw new Error("Invalid response format: NER prediction is not an array");
+        }
+
+        const tokenDictionary: { [key: string]: string } = {};
         const currentTokens = tltText.split(" ");
         currentTokens.forEach((token: any) => {
           tokenDictionary[token] = "O";
         });
         tokens.forEach((token: any) => {
-          tokenDictionary[token["token"]] = token["tag"];
+          if (token && token["token"] && token["tag"]) {
+            tokenDictionary[token["token"]] = token["tag"];
+          }
         });
         setRequestTime(response.headers["request-duration"]);
         setNERTokens(tokenDictionary);
         setFetching(false);
         setFetched(true);
+        setError(null);
+      })
+      .catch((error) => {
+        console.error("NER inference error:", error);
+        let errorMessage = "Failed to process NER request";
+
+        if (error.response) {
+          // Server responded with error status
+          const status = error.response.status;
+          const errorData = error.response.data;
+
+          if (errorData?.detail?.message) {
+            errorMessage = errorData.detail.message;
+          } else if (errorData?.detail?.kind) {
+            errorMessage = `${errorData.detail.kind}: ${errorData.detail.message || "Request failed"}`;
+          } else if (errorData?.message) {
+            errorMessage = errorData.message;
+          } else {
+            errorMessage = `Server error (${status}): ${error.response.statusText || "Unknown error"}`;
+          }
+        } else if (error.request) {
+          // Request was made but no response received
+          errorMessage = "No response from server. Please check your connection.";
+        } else {
+          // Error setting up the request
+          errorMessage = error.message || "Failed to setup request";
+        }
+
+        setError(errorMessage);
+        toast({
+          title: "NER Error",
+          description: errorMessage,
+          status: "error",
+          duration: 8000,
+          isClosable: true,
+        });
+        setFetching(false);
+        setFetched(false);
+        setNERTokens({}); // Clear NER tokens on error
       });
   };
 
@@ -148,6 +259,13 @@ const NERTry: React.FC<Props> = (props) => {
         </Stack>
       </GridItem>
       <GridItem>
+        {error && (
+          <Alert status="error" borderRadius="md" mb={4}>
+            <AlertIcon />
+            <AlertTitle mr={2}>Error:</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         {fetching ? <Progress size="xs" isIndeterminate /> : <></>}
       </GridItem>
       {fetched ? (
@@ -183,12 +301,14 @@ const NERTry: React.FC<Props> = (props) => {
             minH={200}
           >
             {Object.entries(nerTokens).map(([token, tag], idx) => {
+              // Get colors for the tag, default to gray if tag not found
+              const colors = tag2Color[tag] || ["#e0e0e0", "#808080"];
               return (
                 <span
                   key={idx}
                   style={{
                     padding: 3,
-                    backgroundColor: tag2Color[tag][0],
+                    backgroundColor: colors[0],
                     borderRadius: 15,
                     lineHeight: 1.8,
                     marginRight: 3,
@@ -198,7 +318,7 @@ const NERTry: React.FC<Props> = (props) => {
                   <span
                     style={{
                       padding: 3,
-                      backgroundColor: tag2Color[tag][1],
+                      backgroundColor: colors[1],
                       borderRadius: 15,
                       color: "white",
                     }}
@@ -211,9 +331,12 @@ const NERTry: React.FC<Props> = (props) => {
           </Box>
           <Stack direction={"column"} gap={5}>
             <Button
-              onClick={() => {
+           isDisabled={!tltText?.trim()}
+            onClick={() => {
+              if(tltText.length!=0){
                 getNEROutput(tltText);
               }}
+            }
             >
               Generate
             </Button>
