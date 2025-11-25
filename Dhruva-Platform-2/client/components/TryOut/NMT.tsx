@@ -1,27 +1,25 @@
+import { IndicTransliterate } from "@ai4bharat/indic-transliterate";
 import {
-  Stack,
-  Text,
-  Select,
+  Box,
   Button,
-  Textarea,
-  Progress,
   Grid,
   GridItem,
+  Progress,
+  Select,
+  SimpleGrid,
+  Stack,
   Stat,
+  StatHelpText,
   StatLabel,
   StatNumber,
-  StatHelpText,
-  SimpleGrid,
+  Text,
+  Textarea,
   useToast,
-  Box,
 } from "@chakra-ui/react";
-import { useEffect, useState } from "react";
-import { IndicTransliterate } from "@ai4bharat/indic-transliterate";
-import { dhruvaAPI, apiInstance } from "../../api/apiConfig";
+import React, { useEffect, useState } from "react";
+import { apiInstance, dhruvaAPI } from "../../api/apiConfig";
 import { lang2label } from "../../config/config";
 import { getWordCount } from "../../utils/utils";
-import React from "react";
-import { FeedbackModal } from "../Feedback/Feedback";
 import {
   PipelineInput,
   PipelineOutput,
@@ -58,7 +56,7 @@ const NMTTry: React.FC<Props> = (props) => {
   const [pipelineOutput, setPipelineOutput] = useState<
     PipelineOutput | undefined
   >();
-  const toast = useToast()
+  const toast = useToast();
 
   const getTranslation = (source: string) => {
     setFetched(false);
@@ -127,14 +125,21 @@ const NMTTry: React.FC<Props> = (props) => {
 
   const renderTransliterateComponent = () => {
     const currentLanguage: LanguageConfig = JSON.parse(language);
+  
     return (
       <IndicTransliterate
         renderComponent={(props) => (
           <>
-          <Textarea  resize="none" h={200} {...props} />
-          <Box>
-            <Text float={"right"} fontSize={"sm"} color={(tltText.length<=512 ?"gray.300":"red.300")}>{tltText.length}/512</Text>
-          </Box>
+            <Textarea resize="none" h={200} {...props} />
+            <Box>
+              <Text
+                float={"right"}
+                fontSize={"sm"}
+                color={tltText.length <= 512 ? "gray.300" : "red.300"}
+              >
+                {tltText.length}/512
+              </Text>
+            </Box>
           </>
         )}
         onChangeText={(text: string) => {
@@ -231,31 +236,31 @@ const NMTTry: React.FC<Props> = (props) => {
             placeholder="View Translation Here..."
           />
           <Button
+          isDisabled={!tltText?.trim()}
             onClick={() => {
-              if(tltText.length <= 512)
-              {
+              if(tltText.length!=0){
+              if (tltText.length <= 512) {
                 getTranslation(tltText);
-              }
-              else
-              {
+              } else {
                 toast({
-                  title: 'Character limit exceeded',
-                  status: 'warning',
+                  title: "Character limit exceeded",
+                  status: "warning",
                   duration: 3000,
                   isClosable: true,
-                })
+                });
               }
             }}
+          }
           >
             Translate
           </Button>
-          {fetched && (
+          {/* {fetched && (
             <FeedbackModal
               pipelineInput={pipelineInput}
               pipelineOutput={pipelineOutput}
               taskType={ULCATaskType.TRANSLATION}
             />
-          )}
+          )} */}
         </Stack>
       </GridItem>
     </Grid>

@@ -5,6 +5,19 @@ import React, { FunctionComponent } from 'react'
 const ModelsTable: FunctionComponent<{data:ModelList[]}> = (props) => {
 
   const searchedModels : ModelList[] = props.data;
+    const options = [
+  { value: "translation", label: "Translation" },
+  { value: "tts", label: "TTS" },
+  { value: "asr", label: "ASR" },
+  { value: "ner", label: "NER" },
+  // { value: "sts", label: "STS" },
+  { value: "transliteration", label: "XLIT" }
+];
+
+const getLabel = (value) => {
+  const option = options.find((opt) => opt.value === value);
+  return option ? option.label : null; 
+};
   return (
     <Box bg="light.100">
     <Table variant="unstyled">
@@ -24,7 +37,7 @@ const ModelsTable: FunctionComponent<{data:ModelList[]}> = (props) => {
             <Td>{modelData.name}</Td>
             <Td>{modelData.modelId}</Td>
             <Td>{modelData.version}</Td>
-            <Td>{modelData.task.type}</Td>
+            <Td>{getLabel(modelData.task)}</Td>
             <Td>
               {" "}
               <Link

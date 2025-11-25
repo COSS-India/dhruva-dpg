@@ -1,0 +1,24 @@
+services:
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: dhruva-platform-client
+    ports:
+      - "3002:3000"
+    volumes:
+      - ./client:/usr/app
+      - /usr/app/node_modules
+    environment:
+      - NODE_ENV=development
+    networks:
+      - dhruva-network
+    command: sh -c "yarn install && yarn run dev"
+
+networks:
+  dhruva-network:
+    name: dhruva-network
+    external: true
+
+
+

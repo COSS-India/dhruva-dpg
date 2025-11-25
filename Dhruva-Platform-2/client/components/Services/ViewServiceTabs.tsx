@@ -16,6 +16,21 @@ const ViewServiceTabs = ({
   //  const serviceInfo = props.serviceInfo;
   //  const languages = props.languages;
   //  const serviceID = props.serviceID;
+  
+   const options = [
+  { value: "translation", label: "Translation" },
+  { value: "tts", label: "TTS" },
+  { value: "asr", label: "ASR" },
+  { value: "ner", label: "NER" },
+  // { value: "sts", label: "STS" },
+  { value: "transliteration", label: "XLIT" }
+];
+
+const getLabel = (value) => {
+  const option = options.find((opt) => opt.value === value);
+  return option ? option.label : null; 
+};
+
   return (
     <TabPanels>
       <TabPanel>
@@ -28,7 +43,7 @@ const ViewServiceTabs = ({
               Model Version : {serviceInfo["model"]["version"]}
             </Text>
             <Text className="dview-service-info-item">
-              Model Type : {serviceInfo["model"]["task"]["type"]}
+              Model Type : {getLabel(serviceInfo["model"]["task"]["type"])}
             </Text>
             <Text className="dview-service-info-item">
               Running On : {serviceInfo["hardwareDescription"]}
